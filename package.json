@@ -1,0 +1,14 @@
+{
+  "name": "experiment-seon99",
+  "version": "1.0.0",
+  "description": "test haircut app frameworks and libraries",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.180.0"
+  }
+}
