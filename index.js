@@ -48,19 +48,25 @@ let faceLandmarkerInitialized = false;
  */
 function waitForVisionBundle() {
     return new Promise((resolve, reject) => {
-        const maxAttempts = 50;
+        const maxAttempts = 100;
         let attempts = 0;
         
         const checkInterval = setInterval(() => {
             attempts++;
             
-            // Check if the vision tasks are available
-            if (typeof window.FaceLandmarker !== 'undefined') {
+            // Check multiple possible locations for the vision tasks
+            const visionAvailable = 
+                (typeof window.FaceLandmarker !== 'undefined') ||
+                (typeof window.vision !== 'undefined' && window.vision.FaceLandmarker) ||
+                (typeof tasks !== 'undefined' && tasks.vision && tasks.vision.FaceLandmarker);
+            
+            if (visionAvailable) {
                 clearInterval(checkInterval);
+                console.log('✅ MediaPipe vision bundle detected');
                 resolve();
             } else if (attempts >= maxAttempts) {
                 clearInterval(checkInterval);
-                reject(new Error('MediaPipe vision bundle failed to load'));
+                reject(new Error('MediaPipe vision bundle failed to load after 20 seconds'));
             }
         }, 200);
     });
@@ -79,13 +85,36 @@ async function initializeFaceLandmarker() {
         // Wait for vision bundle to be available
         await waitForVisionBundle();
         
-        const { FaceLandmarker, FilesetResolver } = window;
+        // Try to find FaceLandmarker and FilesetResolver in different locations
+        let FaceLandmarker, FilesetResolver;
+        
+        if (window.FaceLandmarker && window.FilesetResolver) {
+            FaceLandmarker = window.FaceLandmarker;
+            FilesetResolver = window.FilesetResolver;
+            console.log('Using global window scope');
+        } else if (window.vision) {
+            FaceLandmarker = window.vision.FaceLandmarker;
+            FilesetResolver = window.vision.FilesetResolver;
+            console.log('Using window.vision scope');
+        } else if (typeof tasks !== 'undefined' && tasks.vision) {
+            FaceLandmarker = tasks.vision.FaceLandmarker;
+            FilesetResolver = tasks.vision.FilesetResolver;
+            console.log('Using tasks.vision scope');
+        } else {
+            throw new Error('FaceLandmarker not found in expected locations');
+        }
+        
+        if (!FaceLandmarker || !FilesetResolver) {
+            throw new Error('FaceLandmarker or FilesetResolver is undefined');
+        }
         
         // Initialize the file resolver for WASM files
+        console.log('Loading WASM files...');
         const filesetResolver = await FilesetResolver.forVisionTasks(
-            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+            "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
         );
         
+        console.log('Creating FaceLandmarker instance...');
         // Create FaceLandmarker instance
         faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
             baseOptions: {
@@ -103,27 +132,12 @@ async function initializeFaceLandmarker() {
         
     } catch (error) {
         console.error('Failed to initialize FaceLandmarker:', error);
-        console.log('Attempting fallback initialization...');
-        
-        // Fallback: Try alternative initialization
-        try {
-            const wasm = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm";
-            const filesetResolver = await FilesetResolver.forVisionTasks(wasm);
-            
-            faceLandmarker = await FaceLandmarker.createFromOptions(filesetResolver, {
-                baseOptions: {
-                    modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"
-                },
-                numFaces: 1,
-                runningMode: "IMAGE"
-            });
-            
-            faceLandmarkerInitialized = true;
-            console.log('✅ FaceLandmarker initialized with fallback method');
-        } catch (fallbackError) {
-            console.error('Fallback initialization also failed:', fallbackError);
-            throw fallbackError;
-        }
+        console.log('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            windowKeys: Object.keys(window).filter(k => k.includes('Face') || k.includes('vision') || k.includes('tasks'))
+        });
+        throw new Error('MediaPipe initialization failed: ' + error.message);
     }
 }
 
@@ -620,7 +634,6 @@ if (typeof document !== 'undefined' && processButton) {
         }
     });
 }
-
 
 
 
