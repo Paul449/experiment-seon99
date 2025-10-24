@@ -5,7 +5,7 @@
  */
 // Initialize DOM element variables
 // These will hold references to the file input elements in the HTML
-let frontHeadInput, sideHeadInput, processButton;
+let frontHeadInput, sideHeadInput, processButton, frontPreview, sidePreview;
 
 // Check if we're running in a browser environment (not Node.js)
 // This prevents "document is not defined" errors when testing with Node.js
@@ -14,6 +14,23 @@ if (typeof document !== 'undefined') {
     frontHeadInput = document.getElementById('frontHeadInput'); // Front view head image input
     sideHeadInput = document.getElementById('sideHeadInput');   // Side view head image input
     processButton = document.getElementById('processButton');   // Process button for triggering image analysis
+    frontPreview = document.getElementById('frontHeadPreview'); // Front image preview container
+    sidePreview = document.getElementById('sideHeadPreview');   // Side image preview container
+    
+    // Add event listeners to show previews immediately when files are selected
+    frontHeadInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            showSimplePreview(file, frontPreview, 'Front View');
+        }
+    });
+    
+    sideHeadInput.addEventListener('change', function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            showSimplePreview(file, sidePreview, 'Side View');
+        }
+    });
 }
 
 // Image requirements configuration
@@ -21,8 +38,8 @@ const IMAGE_REQUIREMENTS = {
     // File size limits (in bytes)
     maxFileSize: 5 * 1024 * 1024, // 5MB max file size
     // Resolution requirements
-    minWidth: 800,     // Minimum width for good quality processing
-    minHeight: 600,    // Minimum height for good quality processing
+    minWidth: 300,     // Minimum width for good quality processing
+    minHeight: 300,    // Minimum height for good quality processing
     maxWidth: 4000,    // Maximum width to prevent excessive processing
     maxHeight: 3000,   // Maximum height to prevent excessive processing
     // Supported formats
@@ -71,6 +88,54 @@ function validateImageResolution(imageFile) {
 }
 
 /**
+ * Shows a simple image preview immediately when file is selected
+ * @param {File} imageFile - The image file to display
+ * @param {HTMLElement} container - The DOM element to display the image in
+ * @param {string} label - Label for the image (e.g., "Front View")
+ */
+function showSimplePreview(imageFile, container, label) {
+    // Clear any existing content
+    container.innerHTML = '';
+    
+    // Create image element
+    const img = document.createElement('img');
+    const url = URL.createObjectURL(imageFile);
+    
+    // Set image properties for simple preview
+    img.src = url;
+    img.alt = label;
+    img.style.maxWidth = '250px';
+    img.style.maxHeight = '250px';
+    img.style.width = 'auto';
+    img.style.height = 'auto';
+    img.style.border = '2px solid #ddd';
+    img.style.borderRadius = '8px';
+    img.style.objectFit = 'contain';
+    
+    // Create simple label
+    const labelElement = document.createElement('p');
+    labelElement.textContent = label;
+    labelElement.style.textAlign = 'center';
+    labelElement.style.margin = '10px 0 5px 0';
+    labelElement.style.fontWeight = 'bold';
+    labelElement.style.color = '#333';
+    
+    // Clean up URL when image loads
+    img.onload = function() {
+        URL.revokeObjectURL(url);
+    };
+    
+    // Add elements to container
+    container.appendChild(labelElement);
+    container.appendChild(img);
+    
+    // Remove the colored background and set clean styling
+    container.style.backgroundColor = 'transparent';
+    container.style.padding = '15px';
+    container.style.textAlign = 'center';
+}
+
+/**
  * Function to process user-uploaded head images with comprehensive validation
  * @param {File} frontHead - The front view image file of the user's head
  * @param {File} sideHead - The side view image file of the user's head
@@ -112,7 +177,7 @@ async function getUserInfo(frontHead, sideHead) {
             return;
         }
 
-        // Validate image resolutions
+        // Validate image resolutions for processing
         console.log('Validating image resolutions...');
         
         const frontDimensions = await validateImageResolution(frontHead);
@@ -121,10 +186,10 @@ async function getUserInfo(frontHead, sideHead) {
         const sideDimensions = await validateImageResolution(sideHead);
         console.log(`Side image resolution: ${sideDimensions.width}x${sideDimensions.height}px ✅`);
 
-        // All validations passed
-        console.log('✅ All image validations passed! Ready for processing.');
+        // All validations passed - ready for processing
+        console.log('✅ All image validations passed! Ready for 3D processing...');
         
-        // TODO: Continue with image processing...
+        // TODO: Continue with 3D processing...
         
     } catch (error) {
         console.error('❌ Image validation failed:', error);
@@ -150,7 +215,7 @@ if (typeof document !== 'undefined' && processButton) {
     });
 }
 
-/*
+
 //Process user-uploaded images while  extracting facial features
 
 function processUploadedImages() {
@@ -159,4 +224,3 @@ function processUploadedImages() {
 }
 
 
-*/
