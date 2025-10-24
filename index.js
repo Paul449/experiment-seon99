@@ -218,9 +218,5 @@ if (typeof document !== 'undefined' && processButton) {
 
 //Process user-uploaded images while  extracting facial features
 
-function processUploadedImages() {
-
-
-}
 
 
