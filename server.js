@@ -1,10 +1,14 @@
+//creates a simple HTTP server functionality
 const http = require('http');
+//file system module to interact with the file system
 const fs = require('fs');
+//path module to work with file and directory paths
 const path = require('path');
+//importing Face3DBuilder class from 3d.js file
 const Face3DBuilder = require('./3d.js');
-
+//defining the port number for the server to listen on
 const PORT = 3000;
-
+// Object variable called mime types(Multipurpose Internet Mail Extensions)
 const mimeTypes = {
   '.html': 'text/html',
   '.js': 'text/javascript',
