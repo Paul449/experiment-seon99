@@ -1,15 +1,29 @@
 {
   "name": "experiment-seon99",
   "version": "1.0.0",
-  "description": "test haircut app frameworks and libraries",
-  "main": "index.js",
+  "main": "3d.js",
+  "dependencies": {
+    "@tensorflow-models/face-landmarks-detection": "^1.0.6",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-backend-wasm": "^4.22.0",
+    "canvas": "^3.2.0",
+    "delaunator": "^5.0.1",
+    "three": "^0.180.0"
+  },
   "scripts": {
+    "start": "server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Paul449/experiment-seon99.git"
+  },
+  "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
-    "three": "^0.180.0"
-  }
+  "bugs": {
+    "url": "https://github.com/Paul449/experiment-seon99/issues"
+  },
+  "homepage": "https://github.com/Paul449/experiment-seon99#readme",
+  "description": ""
 }
