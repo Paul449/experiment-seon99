@@ -25,7 +25,7 @@ const mimeTypes = {
   '.obj': 'text/plain',
   '.mtl': 'text/plain'
 };
-
+console.log(mimeTypes)
 const server = http.createServer((req, res) => {
   console.log(`${req.method} ${req.url}`);
 
