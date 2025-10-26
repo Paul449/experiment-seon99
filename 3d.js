@@ -1,72 +1,85 @@
-// Face3DBuilder.js
-// 2D face image -> 3D OBJ mesh using TFJS (WASM) + face-landmarks-detection detector API
-
-const fs = require('fs');
-const path = require('path');
-
-// --- TensorFlow.js (WASM backend; Node 22 friendly) ---
-const tf = require('@tensorflow/tfjs');
-const wasm = require('@tensorflow/tfjs-backend-wasm');
-const { setWasmPaths } = wasm;
-require('@tensorflow/tfjs-backend-wasm');
-setWasmPaths('node_modules/@tensorflow/tfjs-backend-wasm/dist/');
-
-const faceLandmarksDetection = require('@tensorflow-models/face-landmarks-detection');
-const { loadImage, createCanvas } = require('canvas');
-let Delaunator = require('delaunator');
-Delaunator = Delaunator?.default || Delaunator?.Delaunator || Delaunator;
-
-class Face3DBuilder {
+class BrowserFace3DBuilder {
   constructor(options = {}) {
-    this.imagePath = options.imagePath || path.join(__dirname, 'images/face.jpeg');
-    this.outputDir = options.outputDir || __dirname;
-    this.outputOBJ = path.join(this.outputDir, options.objName || 'face.obj');
-    this.outputMTL = path.join(this.outputDir, options.mtlName || 'face.mtl');
-    this.textureImage = path.join(this.outputDir, options.textureName || 'face_texture.jpg');
     this.zScale = options.zScale || 1.2;
-    this.detector = null;
-    this.tfInitialized = false;
+    this.landmarks = options.landmarks || null;
+    this.imageFile = options.imageFile || null;
+    this.imageBitmap = null;
   }
 
-  async initTF() {
-    if (this.tfInitialized) return;
-    await tf.setBackend('wasm');
-    await tf.ready();
-    console.log('TF backend:', tf.getBackend());
-    this.tfInitialized = true;
+  /**
+   * Generate synthetic landmarks for testing when no landmarks provided
+   */
+  generateSyntheticLandmarks(width, height) {
+    console.log('⚠️  Generating synthetic landmarks for testing...');
+    console.log('💡 For best results, use landmark data from MediaPipe processing');
+    
+    const landmarks = [];
+    const centerX = width * 0.5;
+    const centerY = height * 0.5;
+    const faceWidth = width * 0.3;
+    const faceHeight = width * 0.4;
+    
+    // Generate 468 synthetic landmarks in face pattern
+    for (let i = 0; i < 468; i++) {
+      const angle = (i / 468) * Math.PI * 2;
+      const radius = faceWidth * (0.3 + 0.7 * Math.random());
+      
+      const x = centerX + Math.cos(angle) * radius * (0.8 + 0.4 * Math.sin(angle * 3));
+      const y = centerY + Math.sin(angle) * radius * faceHeight / faceWidth;
+      const z = Math.random() * 10 - 5;
+      
+      landmarks.push([
+        Math.max(0, Math.min(width, x)),
+        Math.max(0, Math.min(height, y)),
+        z
+      ]);
+    }
+    
+    return landmarks;
   }
 
+  /**
+   * Load image and prepare landmarks
+   */
   async estimateLandmarks() {
-    const img = await loadImage(this.imagePath);
-    const canvas = createCanvas(img.width, img.height);
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0);
+    if (!this.imageFile) {
+      throw new Error('No image file provided');
+    }
 
-    console.log('Loading FaceMesh detector...');
-    const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-    this.detector = await faceLandmarksDetection.createDetector(model, {
-      runtime: 'tfjs',         // use TFJS (works with WASM backend)
-      refineLandmarks: false,  // set true if you want iris landmarks too
-      maxFaces: 1,
-    });
+    // Create image bitmap for processing
+    this.imageBitmap = await createImageBitmap(this.imageFile);
+    const width = this.imageBitmap.width;
+    const height = this.imageBitmap.height;
 
-    console.log('Detecting landmarks...');
-    const faces = await this.detector.estimateFaces(canvas);
-    if (!faces.length) throw new Error('❌ No face detected. Use a clear, frontal, well-lit image.');
-
-    // New API returns keypoints: [{x,y,z,name?}, ...] (468 or 478 with refineLandmarks)
-    const kp = faces[0].keypoints;
-    if (!kp?.length) throw new Error('❌ No landmarks found on prediction.');
-
-    const points = kp.map(p => [p.x, p.y, p.z ?? 0]);
-    console.log(`✅ Detected ${points.length} landmarks`);
+    // If landmarks were provided (from MediaPipe processing), use them
+    if (this.landmarks) {
+      console.log('✅ Using pre-computed landmarks from MediaPipe processing');
+      
+      // Convert normalized landmarks to pixel coordinates
+      const points = this.landmarks.map(lm => [
+        lm.x * width,
+        lm.y * height,
+        lm.z || 0
+      ]);
+      
+      const originalPoints = this.landmarks.map(lm => [lm.x * width, lm.y * height]);
+      
+      return { points, originalPoints, width, height };
+    }
     
-    // Store original 2D points for UV mapping
-    const originalPoints = kp.map(p => [p.x, p.y]);
+    // Fallback: Generate synthetic landmarks for testing
+    console.log('📝 No pre-computed landmarks provided, generating synthetic landmarks...');
+    const points = this.generateSyntheticLandmarks(width, height);
+    const originalPoints = points.map(([x, y]) => [x, y]);
     
-    return { points, originalPoints, width: img.width, height: img.height };
+    console.log(`✅ Generated ${points.length} synthetic landmarks`);
+    
+    return { points, originalPoints, width, height };
   }
 
+  /**
+   * Normalize and center landmarks
+   */
   normalizeAndCenter(points, width, height) {
     const maxDim = Math.max(width, height);
     return points.map(([x, y, z]) => {
@@ -77,27 +90,40 @@ class Face3DBuilder {
     });
   }
 
+  /**
+   * Generate UV coordinates for texture mapping
+   */
   generateUVCoordinates(points, originalPoints, width, height) {
-    // Generate UV texture coordinates for each vertex
     return originalPoints.map(([x, y]) => {
-      const u = x / width;      // Horizontal texture coordinate (0-1)
-      const v = 1 - (y / height); // Vertical texture coordinate (0-1), flipped for texture
+      const u = x / width;
+      const v = 1 - (y / height); // Flipped for texture
       return [u, v];
     });
   }
 
-  triangulate(points3d) {
+  /**
+   * Triangulate points using Delaunator (browser version)
+   */
+  async triangulate(points3d) {
     const coords2d = points3d.map(([x, y]) => [x, y]);
+    
+    // Use dynamic import for Delaunator
+    const DelaunatorModule = await import('https://cdn.skypack.dev/delaunator@5.0.1');
+    const Delaunator = DelaunatorModule.default;
+    
     const delaunay = Delaunator.from(coords2d);
     return Array.from(delaunay.triangles);
   }
 
+  /**
+   * Generate OBJ file content
+   */
   toOBJ(vertices, triangles, uvCoords) {
     let obj = '';
     
-    // Header with material file reference
-    obj += `# Realistic 3D Face Model\n`;
-    obj += `mtllib ${path.basename(this.outputMTL)}\n\n`;
+    // Header
+    obj += `# Browser-Generated 3D Face Model\n`;
+    obj += `mtllib face.mtl\n\n`;
     
     // Vertices
     for (const [x, y, z] of vertices) {
@@ -105,130 +131,153 @@ class Face3DBuilder {
     }
     obj += '\n';
     
-    // UV texture coordinates
+    // UV coordinates
     for (const [u, v] of uvCoords) {
       obj += `vt ${u.toFixed(6)} ${v.toFixed(6)}\n`;
     }
     obj += '\n';
     
-    // Use material for realistic appearance
+    // Material
     obj += `usemtl face_material\n`;
     
-    // Faces with texture coordinates
+    // Faces
     for (let i = 0; i < triangles.length; i += 3) {
       const a = triangles[i] + 1;
       const b = triangles[i + 1] + 1;
       const c = triangles[i + 2] + 1;
-      // Format: f vertex/texture vertex/texture vertex/texture
       obj += `f ${a}/${a} ${b}/${b} ${c}/${c}\n`;
     }
     
     return obj;
   }
 
+  /**
+   * Generate MTL file content
+   */
   createMTL() {
-    // Material file for realistic face appearance
     let mtl = '';
-    mtl += `# Realistic Face Material\n`;
+    mtl += `# Browser-Generated Face Material\n`;
     mtl += `newmtl face_material\n`;
-    mtl += `Ka 0.2 0.2 0.2\n`;        // Ambient color
-    mtl += `Kd 1.0 1.0 1.0\n`;        // Diffuse color (white, texture provides color)
-    mtl += `Ks 0.1 0.1 0.1\n`;        // Specular color (slight shine)
-    mtl += `Ns 10.0\n`;               // Shininess (low for skin)
-    mtl += `d 1.0\n`;                 // Opacity
-    mtl += `illum 2\n`;               // Illumination model
-    mtl += `map_Kd ${path.basename(this.textureImage)}\n`; // Diffuse texture map
+    mtl += `Ka 0.2 0.2 0.2\n`;
+    mtl += `Kd 1.0 1.0 1.0\n`;
+    mtl += `Ks 0.1 0.1 0.1\n`;
+    mtl += `Ns 10.0\n`;
+    mtl += `d 1.0\n`;
+    mtl += `illum 2\n`;
+    mtl += `map_Kd face_texture.jpg\n`;
     
     return mtl;
   }
 
+  /**
+   * Process image for texture (browser version)
+   */
   async processImageTexture() {
-    // Copy and optimize the face image for texture use
-    const img = await loadImage(this.imagePath);
-    const canvas = createCanvas(img.width, img.height);
+    const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
-    // Draw original image
-    ctx.drawImage(img, 0, 0);
+    canvas.width = this.imageBitmap.width;
+    canvas.height = this.imageBitmap.height;
+    
+    // Draw image
+    ctx.drawImage(this.imageBitmap, 0, 0);
     
     // Optional: Enhance skin texture
-    const imageData = ctx.getImageData(0, 0, img.width, img.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     
     // Slight skin tone enhancement
     for (let i = 0; i < data.length; i += 4) {
-      // Warm up skin tones slightly
       data[i] = Math.min(255, data[i] * 1.05);     // Red
-      data[i + 1] = Math.min(255, data[i + 1] * 1.02); // Green
+      data[i + 1] = Math.min(255, data[i + 1] * 1.02); // Green  
       data[i + 2] = Math.min(255, data[i + 2] * 0.98);  // Blue
     }
     
     ctx.putImageData(imageData, 0, 0);
     
-    // Save as texture
-    const buffer = canvas.toBuffer('image/jpeg', { quality: 0.9 });
-    fs.writeFileSync(this.textureImage, buffer);
-    
-    console.log(`📸 Texture image saved: ${this.textureImage}`);
+    // Convert to blob for download
+    return new Promise(resolve => {
+      canvas.toBlob(blob => {
+        resolve(blob);
+      }, 'image/jpeg', 0.9);
+    });
   }
 
+  /**
+   * Build 3D model and return downloadable files
+   */
   async build() {
     try {
-      console.log('🎭 Building realistic 3D face with texture...');
-      await this.initTF();
+      console.log('🎭 Building 3D face model in browser...');
       
       const { points, originalPoints, width, height } = await this.estimateLandmarks();
-      console.log('🔍 Generating 3D mesh with UV coordinates...');
+      console.log('🔍 Generating 3D mesh...');
       
       const verts = this.normalizeAndCenter(points, width, height);
       const uvCoords = this.generateUVCoordinates(points, originalPoints, width, height);
-      const tris = this.triangulate(verts);
+      const tris = await this.triangulate(verts);
       
-      console.log('🎨 Processing face texture...');
-      await this.processImageTexture();
+      console.log('🎨 Processing texture...');
+      const textureBlob = await this.processImageTexture();
       
-      console.log('📄 Creating material files...');
-      const obj = this.toOBJ(verts, tris, uvCoords);
-      const mtl = this.createMTL();
+      console.log('📄 Creating model files...');
+      const objContent = this.toOBJ(verts, tris, uvCoords);
+      const mtlContent = this.createMTL();
       
-      fs.writeFileSync(this.outputOBJ, obj, 'utf8');
-      fs.writeFileSync(this.outputMTL, mtl, 'utf8');
+      // Create downloadable blobs
+      const objBlob = new Blob([objContent], { type: 'text/plain' });
+      const mtlBlob = new Blob([mtlContent], { type: 'text/plain' });
       
-      console.log(`✅ Realistic 3D face model created:`);
-      console.log(`   📄 Model: ${this.outputOBJ}`);
-      console.log(`   🎨 Material: ${this.outputMTL}`);
-      console.log(`   📸 Texture: ${this.textureImage}`);
-      console.log('');
-      console.log('🎯 Your face now has:');
-      console.log('   ✅ Real skin texture from your photo');
-      console.log('   ✅ Eyes, nose, mouth details');
-      console.log('   ✅ Proper lighting and materials');
-      console.log('');
-      console.log('🌐 View at: http://localhost:3000');
-      console.log('💡 Import into Blender: File → Import → Wavefront (.obj)');
-
+      console.log('✅ 3D face model created successfully!');
+      
       return {
-        objPath: this.outputOBJ,
-        mtlPath: this.outputMTL,
-        texturePath: this.textureImage
+        obj: objBlob,
+        mtl: mtlBlob,
+        texture: textureBlob,
+        objContent,
+        mtlContent
       };
+      
     } catch (err) {
-      console.error(err);
+      console.error('❌ Error building 3D model:', err);
       throw err;
     }
   }
+
+  /**
+   * Download generated files
+   */
+  downloadFiles(result) {
+    // Download OBJ file
+    const objUrl = URL.createObjectURL(result.obj);
+    const objLink = document.createElement('a');
+    objLink.href = objUrl;
+    objLink.download = 'face.obj';
+    objLink.click();
+    
+    // Download MTL file
+    const mtlUrl = URL.createObjectURL(result.mtl);
+    const mtlLink = document.createElement('a');
+    mtlLink.href = mtlUrl;
+    mtlLink.download = 'face.mtl';
+    mtlLink.click();
+    
+    // Download texture
+    const textureUrl = URL.createObjectURL(result.texture);
+    const textureLink = document.createElement('a');
+    textureLink.href = textureUrl;
+    textureLink.download = 'face_texture.jpg';
+    textureLink.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      URL.revokeObjectURL(objUrl);
+      URL.revokeObjectURL(mtlUrl);
+      URL.revokeObjectURL(textureUrl);
+    }, 1000);
+  }
 }
 
-// Export the class
-module.exports = Face3DBuilder;
-
-// If run directly, create an instance and build
-if (require.main === module) {
-  const builder = new Face3DBuilder();
-  builder.build().catch(err => {
-    console.error(err);
-    process.exit(1);
-  });
-}
-
+// Export for browser use
+window.BrowserFace3DBuilder = BrowserFace3DBuilder;
 

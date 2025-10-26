@@ -1,34 +1,87 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <script type="module">
-            import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
-            window.FaceLandmarker = FaceLandmarker;
-            window.FilesetResolver = FilesetResolver;
-        </script>
-        <title>3D haircut</title>
-    </head>
-    <body>
-        <h1>3D haircut</h1>
-        <p>This is a simple HTML page for a 3D haircut application.</p>
-        <input type="file" id="frontHeadInput" accept="image/*">
-        <input type="file" id="sideHeadInput" accept="image/*">
-        <div id="output" style="display: flex; flex-wrap: wrap; flex-direction: column; 
-        gap: 10px; margin: 10%; padding: 10%; justify-content: center;
-        align-content: center; border: 5px solid black;">
-            <p>Select two images</p>
-            <p>Uploaded Images:</p>
-            <div id="frontHeadPreview" style=" display: inline-block; background-color: blue; padding: 50px;" >
-             
-            </div>
-            <div id="sideHeadPreview" style=" display: inline-block; background-color: green; padding: 50px;">
-
-            </div>
-            <input type="text" id="prompt" placeholder="Enter haircut prompt" style="border: 5px solid black; padding: 10px;">
-            <button id="processButton" style="margin-top: 10%;">Process Images</button>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="module">
+        import { FaceLandmarker, FilesetResolver } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14';
+        window.FaceLandmarker = FaceLandmarker;
+        window.FilesetResolver = FilesetResolver;
+    </script>
+    <title>3D haircut</title>
+    <style>
+        .btn {
+            margin: 5px;
+            padding: 10px 15px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .btn:hover:not(:disabled) {
+            background: #45a049;
+        }
+        #generate3DBtn {
+            background: #2196F3;
+        }
+        #generate3DBtn:hover:not(:disabled) {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <h1>3D haircut</h1>
+    <p>This is a simple HTML page for a 3D haircut application.</p>
+    
+    <input type="file" id="frontHeadInput" accept="image/*">
+    <input type="file" id="sideHeadInput" accept="image/*">
+    
+    <div id="output" style="display: flex; flex-wrap: wrap; flex-direction: column; 
+    gap: 10px; margin: 10%; padding: 10%; justify-content: center;
+    align-content: center; border: 5px solid black;">
+        <p>Select two images</p>
+        <p>Uploaded Images:</p>
+        <div id="frontHeadPreview" style="display: inline-block; background-color: blue; padding: 50px;"></div>
+        <div id="sideHeadPreview" style="display: inline-block; background-color: green; padding: 50px;"></div>
+        <input type="text" id="prompt" placeholder="Enter haircut prompt" style="border: 5px solid black; padding: 10px;">
+        <button id="processButton" style="margin-top: 10%;">Process Images</button>
+        <button id="generate3DBtn" onclick="generate3DModelInBrowser()" disabled style="margin-top: 10px;">
+            Generate 3D Model 🎭
+        </button>
+    </div>
+    
+    <div id="3dOutput" style="overflow: hidden; margin: 10%; padding: 10%; padding-bottom: 10%;
+    border: 5px solid black; background:rgba(0,0,0,0.7); border-radius:10px; z-index:100; color: white;">
+        <div id="info">
+            <strong>🎭 Your 3D Face Model</strong><br>
+            Mouse: Orbit | Wheel: Zoom | Click VR/AR buttons below
         </div>
+        <div id="loading">Loading your 3D face model...</div>
+        
+        <div id="canvas-container" style="width: 100%; height: 400px; margin: 20px 0;"></div>
+        
+        <div id="controls">
+            <button id="vrButton" class="btn" disabled>Loading... 🥽</button>
+            <button id="arButton" class="btn" disabled>Loading... 📱</button>
+            <button id="fullscreenBtn" class="btn">Fullscreen 📺</button>
+            <button id="lifeSize" class="btn">Life Size 👤</button>
+            <button id="closeUp" class="btn">Close-up 🔍</button>
+            <button id="mirror" class="btn">Mirror Mode 🪞</button>
+        </div>
+    </div>
 
-        <script src="index.js" type="text/javascript"></script>
-    </body>
+    <!-- Three.js for 3D rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/MTLLoader.js"></script>
+    
+    <script src="index.js"></script>
+    <script src="3d.js"></script>
+</body>
+</html>
