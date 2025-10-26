@@ -613,7 +613,8 @@ if (typeof document !== 'undefined' && processButton) {
         try {
             // Process the uploaded images
             const landmarkData = await getUserInfo(frontHeadFile, sideHeadFile);
-            
+            //3D button enable or other functions can be called here
+            generate3DBtn.disabled = false;
             // Success feedback
             processButton.textContent = '✓ Processing Complete!';
             processButton.style.backgroundColor = '#28a745';
