@@ -80,6 +80,70 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/OBJLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/MTLLoader.js"></script>
+    <script>
+      async function generate3DModelInBrowser() {
+    const data = window.landmarkData;
+    
+    if (!data) {
+        alert('Please process face images first!');
+        return;
+    }
+
+    const generate3DBtn = document.getElementById('generate3DBtn');
+    
+    try {
+        // Disable button during processing
+        generate3DBtn.disabled = true;
+        generate3DBtn.textContent = 'Generating 3D Model...';
+        generate3DBtn.style.backgroundColor = '#ffc107';
+        
+        console.log('🚀 Starting 3D model generation...');
+        
+        // Create browser 3D builder with MediaPipe landmarks
+        const builder = new window.BrowserFace3DBuilder({
+            landmarks: data.frontLandmarks,
+            imageFile: frontHeadInput.files[0], // Use the uploaded front image
+            zScale: 1.2
+        });
+        
+        // Generate 3D model
+        const result = await builder.build();
+        
+        // Auto-download files
+        builder.downloadFiles(result);
+        
+        // Success feedback
+        generate3DBtn.textContent = '✅ 3D Model Generated!';
+        generate3DBtn.style.backgroundColor = '#28a745';
+        
+        console.log('✅ 3D model generated and downloaded successfully!');
+        alert('3D model files (OBJ, MTL, Texture) downloaded successfully!');
+        
+        // Reset button after 3 seconds
+        setTimeout(() => {
+            generate3DBtn.textContent = 'Generate 3D Model 🎭';
+            generate3DBtn.style.backgroundColor = '#2196F3';
+            generate3DBtn.disabled = false;
+        }, 3000);
+        
+    } catch (error) {
+        console.error('❌ Error generating 3D model:', error);
+        
+        // Error feedback
+        generate3DBtn.textContent = '❌ Generation Failed';
+        generate3DBtn.style.backgroundColor = '#dc3545';
+        
+        alert('Error generating 3D model: ' + error.message);
+        
+        // Reset button after 3 seconds
+        setTimeout(() => {
+            generate3DBtn.textContent = 'Generate 3D Model 🎭';
+            generate3DBtn.style.backgroundColor = '#2196F3';
+            generate3DBtn.disabled = false;
+        }, 3000);
+    }
+}
+    </script>
     
     <script src="index.js"></script>
     <script src="3d.js"></script>
