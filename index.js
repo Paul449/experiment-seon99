@@ -1,3 +1,4 @@
+
 let frontHeadInput, sideHeadInput, processButton, frontPreview, sidePreview;
 
 // Check if we're running in a browser environment (not Node.js)
@@ -157,6 +158,11 @@ function detectLandmarks(imageFile) {
             
             img.onload = async () => {
                 try {
+                    //detect side face landmarks
+                    if(viewType === 'side'){
+                        // Detect landmarks
+                        const results = faceLandmarker.detect(img);
+                    }
                     // Detect landmarks
                     const results = faceLandmarker.detect(img);
                     
