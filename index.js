@@ -77,7 +77,9 @@ function waitForVisionBundle() {
  * @returns {Promise<void>}
  */
 async function initializeFaceLandmarker() {
-    if (faceLandmarkerInitialized) return;
+    if (faceLandmarkerInitialized){
+        return faceLandmarker;
+    }
     
     console.log('Initializing MediaPipe FaceLandmarker...');
     

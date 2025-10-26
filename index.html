@@ -29,6 +29,47 @@
             <input type="text" id="prompt" placeholder="Enter haircut prompt" style="border: 5px solid black; padding: 10px;">
             <button id="processButton" style="margin-top: 10%;">Process Images</button>
         </div>
+        <div id="3dOutput" style=" overflow: hidden; margin: 10%; padding: 10%; padding-bottom: 10%;
+        border: 5px solid black; background:rgba(0,0,0,0.7); border-radius:10px; z-index:100; color: white;">
+        <div id="info">
+        <strong>🎭 Your 3D Face Model</strong><br>
+             Mouse: Orbit | Wheel: Zoom | Click VR/AR buttons below
+        </div>
+        <div id="loading">Loading your 3D face model...</div>
+    
+    <div id="controls">
+      <button id="vrButton" class="btn" disabled>Loading... 🥽</button>
+      <button id="arButton" class="btn" disabled>Loading... 📱</button>
+      <button id="fullscreenBtn" class="btn">Fullscreen 📺</button>
+      <button id="lifeSize" class="btn">Life Size 👤</button>
+      <button id="closeUp" class="btn">Close-up 🔍</button>
+      <button id="mirror" class="btn">Mirror Mode 🪞</button>
+    </div>
+    
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+      }
+    }
+        </div>
+        <script src="index.js" type="text/javascript">
+    </script>
+    <script type="module">
+      import * as THREE from 'three';
+      import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+      import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+      import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      import { VRButton } from 'three/addons/webxr/VRButton.js';
+      import { ARButton } from 'three/addons/webxr/ARButton.js';
 
-        <script src="index.js" type="text/javascript"></script>
+      const loadingDiv = document.getElementById('loading');
+      const vrButton = document.getElementById('vrButton');
+      const arButton = document.getElementById('arButton');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      const lifeSizeBtn = document.getElementById('lifeSize');
+      const closeUpBtn = document.getElementById('closeUp');
+      const mirrorBtn = document.getElementById('mirror');
+    </script>
     </body>
