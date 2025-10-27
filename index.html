@@ -76,11 +76,315 @@
     </div>
 
     <!-- Three.js for 3D rendering -->
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/OBJLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
     <script>
+        // Load OrbitControls dynamically
+        (function() {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js';
+            script.onload = function() {
+                console.log('OrbitControls loaded');
+                // Ensure it's available in THREE namespace
+                if (window.THREE && window.OrbitControls && !window.THREE.OrbitControls) {
+                    window.THREE.OrbitControls = window.OrbitControls;
+                }
+            };
+            script.onerror = function() {
+                console.error('Failed to load OrbitControls, will use manual controls');
+                window.useManualControls = true;
+            };
+            document.head.appendChild(script);
+        })();
+    </script>
+    <script>
+        // Global Three.js variables
+        let scene, camera, renderer, controls, currentMesh;
+        
+        // Initialize Three.js scene
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+            
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.z = 2;
+            
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+            
+            // Controls - with fallback
+            const OrbitControlsConstructor = THREE.OrbitControls || window.OrbitControls;
+            if (OrbitControlsConstructor) {
+                controls = new OrbitControlsConstructor(camera, renderer.domElement);
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+                console.log('✅ OrbitControls initialized');
+            } else {
+                console.log('⚠️ OrbitControls not available, using manual controls');
+                setupManualControls(camera, renderer.domElement);
+            }
+            
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            fillLight.position.set(-1, 0, -1);
+            scene.add(fillLight);
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                if (controls && controls.update) {
+                    controls.update();
+                }
+                renderer.render(scene, camera);
+            }
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+        }
+        
+        // Manual controls fallback
+        function setupManualControls(camera, domElement) {
+            let isMouseDown = false;
+            let mouseX = 0, mouseY = 0;
+            let rotationX = 0, rotationY = 0;
+            let zoom = 2;
+            
+            domElement.addEventListener('mousedown', (e) => {
+                isMouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+            
+            domElement.addEventListener('mousemove', (e) => {
+                if (!isMouseDown) return;
+                
+                const deltaX = e.clientX - mouseX;
+                const deltaY = e.clientY - mouseY;
+                
+                rotationY += deltaX * 0.01;
+                rotationX += deltaY * 0.01;
+                
+                // Limit vertical rotation
+                rotationX = Math.max(-Math.PI/2, Math.min(Math.PI/2, rotationX));
+                
+                // Update camera position
+                camera.position.x = Math.sin(rotationY) * Math.cos(rotationX) * zoom;
+                camera.position.y = Math.sin(rotationX) * zoom;
+                camera.position.z = Math.cos(rotationY) * Math.cos(rotationX) * zoom;
+                camera.lookAt(0, 0, 0);
+                
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+            
+            domElement.addEventListener('mouseup', () => {
+                isMouseDown = false;
+            });
+            
+            domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                zoom += e.deltaY * 0.001;
+                zoom = Math.max(0.5, Math.min(10, zoom));
+                
+                camera.position.x = Math.sin(rotationY) * Math.cos(rotationX) * zoom;
+                camera.position.y = Math.sin(rotationX) * zoom;
+                camera.position.z = Math.cos(rotationY) * Math.cos(rotationX) * zoom;
+                camera.lookAt(0, 0, 0);
+            });
+        }
+        
+        // Display 3D model in browser
+        function display3DModel(objContent, textureBlob) {
+            const loadingDiv = document.getElementById('loading');
+            loadingDiv.style.display = 'none';
+            
+            try {
+                // Parse OBJ content manually (simplified parser)
+                const vertices = [];
+                const uvs = [];
+                const faces = [];
+                
+                const lines = objContent.split('\n');
+                
+                for (const line of lines) {
+                    const parts = line.trim().split(/\s+/);
+                    
+                    if (parts[0] === 'v') {
+                        // Vertex
+                        vertices.push([
+                            parseFloat(parts[1]),
+                            parseFloat(parts[2]),
+                            parseFloat(parts[3])
+                        ]);
+                    } else if (parts[0] === 'vt') {
+                        // Texture coordinate
+                        uvs.push([
+                            parseFloat(parts[1]),
+                            parseFloat(parts[2])
+                        ]);
+                    } else if (parts[0] === 'f') {
+                        // Face
+                        const face = [];
+                        for (let i = 1; i < parts.length; i++) {
+                            const indices = parts[i].split('/');
+                            face.push({
+                                vertex: parseInt(indices[0]) - 1,
+                                uv: parseInt(indices[1]) - 1
+                            });
+                        }
+                        faces.push(face);
+                    }
+                }
+                
+                // Create Three.js geometry
+                const geometry = new THREE.BufferGeometry();
+                
+                // Convert faces to Three.js format
+                const positions = [];
+                const textureCoords = [];
+                const indices = [];
+                
+                let vertexIndex = 0;
+                for (const face of faces) {
+                    if (face.length === 3) {
+                        // Triangle
+                        for (const faceVertex of face) {
+                            const vertex = vertices[faceVertex.vertex];
+                            const uv = uvs[faceVertex.uv];
+                            
+                            positions.push(vertex[0], vertex[1], vertex[2]);
+                            textureCoords.push(uv[0], uv[1]);
+                        }
+                        
+                        indices.push(vertexIndex, vertexIndex + 1, vertexIndex + 2);
+                        vertexIndex += 3;
+                    }
+                }
+                
+                geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+                geometry.setAttribute('uv', new THREE.Float32BufferAttribute(textureCoords, 2));
+                geometry.setIndex(indices);
+                geometry.computeVertexNormals();
+                
+                // Create texture from blob
+                const textureUrl = URL.createObjectURL(textureBlob);
+                const texture = new THREE.TextureLoader().load(textureUrl);
+                texture.flipY = false;
+                
+                // Create material
+                const material = new THREE.MeshLambertMaterial({
+                    map: texture,
+                    side: THREE.DoubleSide
+                });
+                
+                // Remove previous mesh if exists
+                if (currentMesh) {
+                    scene.remove(currentMesh);
+                }
+                
+                // Create and add mesh
+                currentMesh = new THREE.Mesh(geometry, material);
+                scene.add(currentMesh);
+                
+                // Center the model
+                const box = new THREE.Box3().setFromObject(currentMesh);
+                const center = box.getCenter(new THREE.Vector3());
+                currentMesh.position.sub(center);
+                
+                // Adjust camera position
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                camera.position.z = maxDim * 2;
+                controls.update();
+                
+                console.log('✅ 3D model displayed successfully!');
+                
+                // Enable control buttons
+                document.getElementById('vrButton').disabled = false;
+                document.getElementById('vrButton').textContent = 'VR Mode 🥽';
+                document.getElementById('arButton').disabled = false;
+                document.getElementById('arButton').textContent = 'AR Mode 📱';
+                
+                // Cleanup texture URL
+                setTimeout(() => URL.revokeObjectURL(textureUrl), 1000);
+                
+            } catch (error) {
+                console.error('Error displaying 3D model:', error);
+                loadingDiv.textContent = 'Error loading 3D model: ' + error.message;
+            }
+        }
+        
+        // Initialize Three.js when page loads
+        window.addEventListener('load', () => {
+            initThreeJS();
+            setupControlButtons();
+        });
+        
+        // Setup control button functionality
+        function setupControlButtons() {
+            // Fullscreen button
+            document.getElementById('fullscreenBtn').addEventListener('click', () => {
+                const container = document.getElementById('canvas-container');
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                }
+            });
+            
+            // Life size button
+            document.getElementById('lifeSize').addEventListener('click', () => {
+                if (currentMesh) {
+                    camera.position.set(0, 0, 0.5);
+                    controls.target.set(0, 0, 0);
+                    controls.update();
+                }
+            });
+            
+            // Close-up button
+            document.getElementById('closeUp').addEventListener('click', () => {
+                if (currentMesh) {
+                    camera.position.set(0, 0, 0.3);
+                    controls.target.set(0, 0.1, 0);
+                    controls.update();
+                }
+            });
+            
+            // Mirror mode button
+            document.getElementById('mirror').addEventListener('click', () => {
+                if (currentMesh) {
+                    currentMesh.scale.x *= -1;
+                }
+            });
+            
+            // VR/AR buttons (placeholder - would need WebXR)
+            document.getElementById('vrButton').addEventListener('click', () => {
+                alert('VR mode would require WebXR support');
+            });
+            
+            document.getElementById('arButton').addEventListener('click', () => {
+                alert('AR mode would require WebXR support');
+            });
+        }
+
       async function generate3DModelInBrowser() {
     const data = window.landmarkData;
     
@@ -90,12 +394,17 @@
     }
 
     const generate3DBtn = document.getElementById('generate3DBtn');
+    const loadingDiv = document.getElementById('loading');
     
     try {
         // Disable button during processing
         generate3DBtn.disabled = true;
         generate3DBtn.textContent = 'Generating 3D Model...';
         generate3DBtn.style.backgroundColor = '#ffc107';
+        
+        // Show loading
+        loadingDiv.style.display = 'block';
+        loadingDiv.textContent = 'Generating your 3D face model...';
         
         console.log('🚀 Starting 3D model generation...');
         
@@ -109,15 +418,17 @@
         // Generate 3D model
         const result = await builder.build();
         
-        // Auto-download files
+        // Display 3D model in browser
+        display3DModel(result.objContent, result.texture);
+        
+        // Also download files (optional)
         builder.downloadFiles(result);
         
         // Success feedback
         generate3DBtn.textContent = '✅ 3D Model Generated!';
         generate3DBtn.style.backgroundColor = '#28a745';
         
-        console.log('✅ 3D model generated and downloaded successfully!');
-        alert('3D model files (OBJ, MTL, Texture) downloaded successfully!');
+        console.log('✅ 3D model generated and displayed successfully!');
         
         // Reset button after 3 seconds
         setTimeout(() => {
@@ -133,7 +444,8 @@
         generate3DBtn.textContent = '❌ Generation Failed';
         generate3DBtn.style.backgroundColor = '#dc3545';
         
-        alert('Error generating 3D model: ' + error.message);
+        loadingDiv.style.display = 'block';
+        loadingDiv.textContent = 'Error generating 3D model: ' + error.message;
         
         // Reset button after 3 seconds
         setTimeout(() => {
