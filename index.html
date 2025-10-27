@@ -76,25 +76,154 @@
     </div>
 
     <!-- Three.js for 3D rendering -->
-    <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script>
-        // Load OrbitControls dynamically
-        (function() {
-            const script = document.createElement('script');
-            script.src = 'https://unpkg.com/three@0.160.0/examples/js/controls/OrbitControls.js';
-            script.onload = function() {
-                console.log('OrbitControls loaded');
-                // Ensure it's available in THREE namespace
-                if (window.THREE && window.OrbitControls && !window.THREE.OrbitControls) {
-                    window.THREE.OrbitControls = window.OrbitControls;
+        // Simplified and compatible OrbitControls implementation
+        THREE.OrbitControls = function (camera, domElement) {
+            this.object = camera;
+            this.domElement = domElement || document;
+            this.enabled = true;
+            
+            // Target to orbit around
+            this.target = new THREE.Vector3();
+            
+            // Control settings
+            this.enableDamping = true;
+            this.dampingFactor = 0.05;
+            this.enableZoom = true;
+            this.zoomSpeed = 1.0;
+            this.enableRotate = true;
+            this.rotateSpeed = 1.0;
+            this.enablePan = true;
+            this.panSpeed = 1.0;
+            
+            // Internal state
+            var scope = this;
+            var isMouseDown = false;
+            var mouseX = 0, mouseY = 0;
+            var spherical = new THREE.Spherical();
+            var sphericalDelta = new THREE.Spherical();
+            var scale = 1;
+            var panOffset = new THREE.Vector3();
+            
+            // Initialize spherical coordinates from current camera position
+            var offset = new THREE.Vector3();
+            offset.copy(camera.position).sub(this.target);
+            spherical.setFromVector3(offset);
+            
+            this.update = function() {
+                offset.copy(scope.object.position).sub(scope.target);
+                
+                // Apply spherical delta
+                spherical.setFromVector3(offset);
+                spherical.theta += sphericalDelta.theta;
+                spherical.phi += sphericalDelta.phi;
+                
+                // Restrict phi to be between desired limits
+                spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+                
+                // Apply scale
+                spherical.radius *= scale;
+                spherical.radius = Math.max(0.1, Math.min(100, spherical.radius));
+                
+                // Move target
+                scope.target.add(panOffset);
+                
+                // Update position
+                offset.setFromSpherical(spherical);
+                scope.object.position.copy(scope.target).add(offset);
+                scope.object.lookAt(scope.target);
+                
+                // Damping
+                if (scope.enableDamping) {
+                    sphericalDelta.theta *= (1 - scope.dampingFactor);
+                    sphericalDelta.phi *= (1 - scope.dampingFactor);
+                    panOffset.multiplyScalar(1 - scope.dampingFactor);
+                } else {
+                    sphericalDelta.set(0, 0, 0);
+                    panOffset.set(0, 0, 0);
                 }
+                
+                scale = 1;
             };
-            script.onerror = function() {
-                console.error('Failed to load OrbitControls, will use manual controls');
-                window.useManualControls = true;
-            };
-            document.head.appendChild(script);
-        })();
+            
+            // Mouse event handlers
+            function onMouseDown(event) {
+                if (!scope.enabled) return;
+                event.preventDefault();
+                
+                isMouseDown = true;
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+                
+                document.addEventListener('mousemove', onMouseMove, false);
+                document.addEventListener('mouseup', onMouseUp, false);
+            }
+            
+            function onMouseMove(event) {
+                if (!scope.enabled || !isMouseDown) return;
+                event.preventDefault();
+                
+                var deltaX = event.clientX - mouseX;
+                var deltaY = event.clientY - mouseY;
+                
+                if (event.button === 0 || event.buttons === 1) {
+                    // Rotate
+                    sphericalDelta.theta -= 2 * Math.PI * deltaX / scope.domElement.clientHeight * scope.rotateSpeed;
+                    sphericalDelta.phi -= 2 * Math.PI * deltaY / scope.domElement.clientHeight * scope.rotateSpeed;
+                } else if (event.button === 2 || event.buttons === 2) {
+                    // Pan
+                    var panDelta = new THREE.Vector3();
+                    var targetDistance = scope.object.position.distanceTo(scope.target);
+                    
+                    panDelta.setFromMatrixColumn(scope.object.matrix, 0); // X
+                    panDelta.multiplyScalar(-2 * deltaX * targetDistance / scope.domElement.clientHeight);
+                    panOffset.add(panDelta);
+                    
+                    panDelta.setFromMatrixColumn(scope.object.matrix, 1); // Y
+                    panDelta.multiplyScalar(2 * deltaY * targetDistance / scope.domElement.clientHeight);
+                    panOffset.add(panDelta);
+                }
+                
+                mouseX = event.clientX;
+                mouseY = event.clientY;
+            }
+            
+            function onMouseUp(event) {
+                if (!scope.enabled) return;
+                
+                isMouseDown = false;
+                document.removeEventListener('mousemove', onMouseMove, false);
+                document.removeEventListener('mouseup', onMouseUp, false);
+            }
+            
+            function onMouseWheel(event) {
+                if (!scope.enabled || !scope.enableZoom) return;
+                event.preventDefault();
+                event.stopPropagation();
+                
+                if (event.deltaY < 0) {
+                    scale /= Math.pow(0.95, scope.zoomSpeed);
+                } else if (event.deltaY > 0) {
+                    scale *= Math.pow(0.95, scope.zoomSpeed);
+                }
+            }
+            
+            function onContextMenu(event) {
+                if (!scope.enabled) return;
+                event.preventDefault();
+            }
+            
+            // Add event listeners
+            this.domElement.addEventListener('contextmenu', onContextMenu, false);
+            this.domElement.addEventListener('mousedown', onMouseDown, false);
+            this.domElement.addEventListener('wheel', onMouseWheel, false);
+            
+            // Initial update
+            this.update();
+        };
+        
+        console.log('✅ Simplified OrbitControls loaded successfully');
     </script>
     <script>
         // Global Three.js variables
@@ -128,7 +257,7 @@
                 console.log('✅ OrbitControls initialized');
             } else {
                 console.log('⚠️ OrbitControls not available, using manual controls');
-                setupManualControls(camera, renderer.domElement);
+                controls = setupManualControls(camera, renderer.domElement);
             }
             
             // Lighting
@@ -211,6 +340,19 @@
                 camera.position.z = Math.cos(rotationY) * Math.cos(rotationX) * zoom;
                 camera.lookAt(0, 0, 0);
             });
+            
+            // Return a controls-like object for compatibility
+            return {
+                update: function() {
+                    // Manual controls don't need update, but provide for compatibility
+                },
+                target: {
+                    set: function(x, y, z) {
+                        // Manual implementation could update look-at target
+                        camera.lookAt(x, y, z);
+                    }
+                }
+            };
         }
         
         // Display 3D model in browser
@@ -315,7 +457,9 @@
                 const size = box.getSize(new THREE.Vector3());
                 const maxDim = Math.max(size.x, size.y, size.z);
                 camera.position.z = maxDim * 2;
-                controls.update();
+                if (controls && controls.update) {
+                    controls.update();
+                }
                 
                 console.log('✅ 3D model displayed successfully!');
                 
@@ -336,8 +480,11 @@
         
         // Initialize Three.js when page loads
         window.addEventListener('load', () => {
-            initThreeJS();
-            setupControlButtons();
+            // Small delay to ensure all scripts are loaded
+            setTimeout(() => {
+                initThreeJS();
+                setupControlButtons();
+            }, 100);
         });
         
         // Setup control button functionality
@@ -354,8 +501,11 @@
             document.getElementById('lifeSize').addEventListener('click', () => {
                 if (currentMesh) {
                     camera.position.set(0, 0, 0.5);
-                    controls.target.set(0, 0, 0);
-                    controls.update();
+                    camera.lookAt(0, 0, 0);
+                    if (controls && controls.target) {
+                        controls.target.set(0, 0, 0);
+                        controls.update();
+                    }
                 }
             });
             
@@ -363,8 +513,11 @@
             document.getElementById('closeUp').addEventListener('click', () => {
                 if (currentMesh) {
                     camera.position.set(0, 0, 0.3);
-                    controls.target.set(0, 0.1, 0);
-                    controls.update();
+                    camera.lookAt(0, 0.1, 0);
+                    if (controls && controls.target) {
+                        controls.target.set(0, 0.1, 0);
+                        controls.update();
+                    }
                 }
             });
             
