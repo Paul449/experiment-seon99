@@ -1,3 +1,4 @@
+
 let frontHeadInput, sideHeadInput, processButton, frontPreview, sidePreview;
 
 // Check if we're running in a browser environment (not Node.js)
@@ -77,7 +78,9 @@ function waitForVisionBundle() {
  * @returns {Promise<void>}
  */
 async function initializeFaceLandmarker() {
-    if (faceLandmarkerInitialized) return;
+    if (faceLandmarkerInitialized){
+        return faceLandmarker;
+    }
     
     console.log('Initializing MediaPipe FaceLandmarker...');
     
@@ -146,7 +149,7 @@ async function initializeFaceLandmarker() {
  * @param {File} imageFile - The image file to process
  * @returns {Promise<{landmarks: Array, width: number, height: number}>}
  */
-function detectLandmarks(imageFile) {
+function detectLandmarks(imageFile, viewType='front') {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         
@@ -155,9 +158,14 @@ function detectLandmarks(imageFile) {
             
             img.onload = async () => {
                 try {
-                    // Detect landmarks
+                          // Detect landmarks
                     const results = faceLandmarker.detect(img);
-                    
+                    //detect side face landmarks
+                    if(viewType === 'side'){
+                        // Detect landmarks
+                        results = faceLandmarker.detect(img);
+                    }
+            
                     if (results.faceLandmarks && results.faceLandmarks.length > 0) {
                         // Get the first face's landmarks
                         const rawLandmarks = results.faceLandmarks[0];
@@ -605,7 +613,9 @@ if (typeof document !== 'undefined' && processButton) {
         try {
             // Process the uploaded images
             const landmarkData = await getUserInfo(frontHeadFile, sideHeadFile);
-            
+            const generate3DBtn = document.getElementById('generate3DBtn');
+            //3D button enable or other functions can be called here
+            generate3DBtn.disabled = false;
             // Success feedback
             processButton.textContent = '✓ Processing Complete!';
             processButton.style.backgroundColor = '#28a745';
