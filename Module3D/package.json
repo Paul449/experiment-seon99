@@ -1,0 +1,43 @@
+{
+  "name": "my-module",
+  "version": "0.1.0",
+  "description": "My new module",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "bash ./node_modules/expo-module-scripts/bin/expo-module-build",
+    "clean": "bash ./node_modules/expo-module-scripts/bin/expo-module-clean",
+    "lint": "bash ./node_modules/expo-module-scripts/bin/expo-module-lint",
+    "test": "bash ./node_modules/expo-module-scripts/bin/expo-module-test",
+    "prepare": "bash ./node_modules/expo-module-scripts/bin/expo-module-prepare",
+    "prepublishOnly": "bash ./node_modules/expo-module-scripts/bin/expo-module-prepublishOnly",
+    "expo-module": "bash ./node_modules/expo-module-scripts/bin/expo-module",
+    "open:ios": "xed example/ios",
+    "open:android": "open -a \"Android Studio\" example/android"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "my-module",
+    "MyModule"
+  ],
+  "repository": "https://github.com/Paul449/my-module",
+  "bugs": {
+    "url": "https://github.com/Paul449/my-module/issues"
+  },
+  "author": "paul449 <paul_bilbatua@hotmail.com> (https://github.com/Paul449)",
+  "license": "MIT",
+  "homepage": "https://github.com/Paul449/my-module#readme",
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "cross-env": "^10.1.0",
+    "expo": "^54.0.18",
+    "expo-module-scripts": "^5.0.7",
+    "react-native": "0.81.5"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}
