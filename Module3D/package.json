@@ -5,13 +5,13 @@
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "build": "expo-module build",
-    "clean": "expo-module clean",
-    "lint": "expo-module lint",
-    "test": "expo-module test",
-    "prepare": "expo-module prepare",
-    "prepublishOnly": "expo-module prepublishOnly",
-    "expo-module": "expo-module",
+    "build": "bash ./node_modules/expo-module-scripts/bin/expo-module-build",
+    "clean": "bash ./node_modules/expo-module-scripts/bin/expo-module-clean",
+    "lint": "bash ./node_modules/expo-module-scripts/bin/expo-module-lint",
+    "test": "bash ./node_modules/expo-module-scripts/bin/expo-module-test",
+    "prepare": "bash ./node_modules/expo-module-scripts/bin/expo-module-prepare",
+    "prepublishOnly": "bash ./node_modules/expo-module-scripts/bin/expo-module-prepublishOnly",
+    "expo-module": "bash ./node_modules/expo-module-scripts/bin/expo-module",
     "open:ios": "xed example/ios",
     "open:android": "open -a \"Android Studio\" example/android"
   },
@@ -28,11 +28,11 @@
   "author": "paul449 <paul_bilbatua@hotmail.com> (https://github.com/Paul449)",
   "license": "MIT",
   "homepage": "https://github.com/Paul449/my-module#readme",
-  "dependencies": {},
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "expo-module-scripts": "^5.0.7",
+    "cross-env": "^10.1.0",
     "expo": "^54.0.18",
+    "expo-module-scripts": "^5.0.7",
     "react-native": "0.81.5"
   },
   "peerDependencies": {

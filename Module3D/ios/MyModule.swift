@@ -1,24 +1,19 @@
 import ExpoModulesCore
 
 public class MyModule: Module {
- 
+  public func definition() -> ModuleDefinition {
     Name("MyModule")
-
-    // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
+    
+    print("🔵 [Swift] MyModule loaded!")
+    
     Function("hello") {
-      return "Hello world! 👋"
+      print("🔵 [Swift] hello() function called!")
+      return "Hello from Swift! 👋"
     }
-    // Enables the module to be used as a native view. Definition components that are accepted as part of the
-    // view definition: Prop, Events.
+    
     View(MyModuleView.self) {
-      // Defines a setter for the `url` prop.
-      Prop("url") { (view: MyModuleView, url: URL) in
-        if view.webView.url != url {
-          view.webView.load(URLRequest(url: url))
-        }
-      }
-
-      
+      print("🔵 [Swift] MyModuleView created!")
     }
   }
 }
+
