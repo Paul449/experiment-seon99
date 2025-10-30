@@ -10,3 +10,4 @@ declare class ExpoSwiftModule extends NativeModule<ExpoSwiftModuleEvents> {
 
 // This call loads the native module object from the JSI.
 export default requireNativeModule<ExpoSwiftModule>('ExpoSwift');
+
