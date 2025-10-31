@@ -9,7 +9,6 @@
     "clean": "bash ./node_modules/expo-module-scripts/bin/expo-module-clean",
     "lint": "bash ./node_modules/expo-module-scripts/bin/expo-module-lint",
     "test": "bash ./node_modules/expo-module-scripts/bin/expo-module-test",
-    "prepare": "bash ./node_modules/expo-module-scripts/bin/expo-module-prepare",
     "prepublishOnly": "bash ./node_modules/expo-module-scripts/bin/expo-module-prepublishOnly",
     "expo-module": "bash ./node_modules/expo-module-scripts/bin/expo-module",
     "open:ios": "xed example/ios",
