@@ -1,0 +1,1 @@
+{"version":3,"file":"MyModule.types.js","sourceRoot":"","sources":["../src/MyModule.types.ts"],"names":[],"mappings":"","sourcesContent":["export type MyModuleEvents = {\r\n  onChange: (params: { value: string }) => void;\r\n};\r\n\r\nexport type MyModuleViewProps = {\r\n  url: string;\r\n  onLoad: (event: { nativeEvent: { url: string } }) => void;\r\n  style?: any;\r\n};"]}
