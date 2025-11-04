@@ -27,4 +27,5 @@ public class Photogrammetry: Module{
             self.configuration = newConfiguration
         }
     }
+    print("configuration", configuration);
 }
