@@ -9,6 +9,8 @@ public class MyModule: Module {
     // Can be inferred from module's class name, but it's recommended to set it explicitly for clarity.
     // The module will be accessible from `requireNativeModule('MyModule')` in JavaScript.
     Name("MyModule")
+    
+    print("🔵 [Swift] MyModule initialized and registered!")
 
     // Defines constant property on the module.
     Constant("PI") {
@@ -20,7 +22,8 @@ public class MyModule: Module {
 
     // Defines a JavaScript synchronous function that runs the native code on the JavaScript thread.
     Function("hello") {
-      return "Hello world! 👋"
+      print("🔵 [Swift] MyModule.hello() called!")
+      return "Hello from Swift! 👋"
     }
 
     // Defines a JavaScript function that always returns a Promise and whose native code
