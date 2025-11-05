@@ -25,7 +25,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.paulbilbatua99.Module3DTest"
     },
     "web": {
       "favicon": "./assets/favicon.png"
