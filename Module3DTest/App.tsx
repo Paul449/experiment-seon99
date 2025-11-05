@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Button, Alert, Text, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Button,
+  Alert,
+  Text,
+  ScrollView,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { MyModuleView } from './modules/my-module';
 import PhotogrammetryModule from './modules/my-module';
 import MyModule from './modules/my-module';
@@ -11,10 +21,22 @@ export default function App() {
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [modelUrl, setModelUrl] = useState<string>('https://example.com/model.obj');
   const [capturedPhotos, setCapturedPhotos] = useState<number>(0);
+  const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
 
   useEffect(() => {
+    (async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'You need to grant photo library access to upload photos.'
+        );
+      }
+    })();
+
     checkDeviceSupport();
     setupEventListeners();
+
     return () => {
       try {
         if (PhotogrammetryModule.removeAllListeners) {
@@ -62,73 +84,79 @@ export default function App() {
     }
   };
 
-  // 🧩 Step 1: Simulate capturing photos with native camera
   const capturePhotos = async () => {
-    try {
-      // Simulate photo capture process
-      Alert.alert(
-        'Camera Capture',
-        'This will use your device camera to capture photos for 3D reconstruction.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Start Capture', 
-            onPress: () => simulatePhotoCapture()
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Camera capture error:', error);
-      Alert.alert('Error', 'Failed to access camera.');
-    }
+    Alert.alert(
+      'Camera Capture',
+      'This will use your device camera to capture photos for 3D reconstruction.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Start Capture', onPress: simulatePhotoCapture },
+      ]
+    );
   };
 
   const simulatePhotoCapture = () => {
-    // Simulate capturing multiple photos
-    const photoCount = Math.floor(Math.random() * 30) + 20; // 20-50 photos
+    const photoCount = Math.floor(Math.random() * 30) + 20;
     setCapturedPhotos(photoCount);
     Alert.alert('Photos Captured', `${photoCount} photos captured successfully!`);
   };
 
-  // 🧩 Step 2: Process captured photos into 3D model
+  const uploadPhotos = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 1,
+      });
+
+      if (!result.canceled) {
+        setSelectedPhotos(result.assets);
+        console.log('✅ Selected photos:', result.assets.map((a) => a.uri));
+        Alert.alert('Photos Selected', `${result.assets.length} photo(s) added!`);
+      }
+    } catch (error) {
+      console.error('Error selecting images:', error);
+      Alert.alert('Error', 'Failed to open photo library.');
+    }
+  };
+
   const processCapturedPhotos = async () => {
     if (!deviceSupported) {
       Alert.alert('Not Supported', 'Photogrammetry is not supported on this device');
       return;
     }
 
-    if (capturedPhotos === 0) {
-      Alert.alert('No Photos', 'Please capture photos first');
+    const totalPhotos = capturedPhotos + selectedPhotos.length;
+    if (totalPhotos === 0) {
+      Alert.alert('No Photos', 'Please capture or upload photos first');
       return;
     }
 
-    try {
-      // Use captured photos for processing
-      const inputFolder = '/path/to/photos/';
-      const outputPath = '/path/to/output/model.usdz';
+    const inputFolder = '/path/to/photos/';
+    const outputPath = '/path/to/output/model.usdz';
 
-      Alert.alert(
-        'Ready to Process',
-        `You captured ${capturedPhotos} photo(s).\n\nStarting 3D reconstruction...`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Start Processing',
-            onPress: () => startPhotogrammetryProcess(inputFolder, outputPath),
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('Error:', error);
-      Alert.alert('Error', 'Failed to start processing.');
-    }
+    Alert.alert(
+      'Ready to Process',
+      `You have ${totalPhotos} photo(s).\nStarting 3D reconstruction...`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Processing',
+          onPress: () => startPhotogrammetryProcess(inputFolder, outputPath),
+        },
+      ]
+    );
   };
 
   const startPhotogrammetryProcess = async (inputFolder: string, outputPath: string) => {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryModule.startObjectCapture(inputFolder, outputPath, 'medium');
+      const result = await PhotogrammetryModule.startObjectCapture(
+        inputFolder,
+        outputPath,
+        'medium'
+      );
       if (result && result.success) {
         setModelUrl(outputPath);
       }
@@ -165,22 +193,26 @@ export default function App() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Device Info Section */}
+      {/* Device Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Device Information</Text>
         {deviceInfo ? (
           <View style={styles.deviceInfo}>
             <Text>Model: {deviceInfo.model || 'Unknown'}</Text>
             <Text>iOS: {deviceInfo.systemVersion || 'Unknown'}</Text>
-            <Text>Photogrammetry: {deviceSupported ? '✅ Supported' : '❌ Not Supported'}</Text>
-            <Text>LiDAR: {deviceInfo.hasLiDAR ? '✅ Available' : '❌ Not Available'}</Text>
+            <Text>
+              Photogrammetry: {deviceSupported ? '✅ Supported' : '❌ Not Supported'}
+            </Text>
+            <Text>
+              LiDAR: {deviceInfo.hasLiDAR ? '✅ Available' : '❌ Not Available'}
+            </Text>
           </View>
         ) : (
           <Text>Loading device info...</Text>
         )}
       </View>
 
-      {/* Camera Capture Section */}
+      {/* Capture Photos */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Photo Capture</Text>
         <Button title="Capture Photos" onPress={capturePhotos} />
@@ -192,12 +224,33 @@ export default function App() {
         )}
       </View>
 
-      {/* Controls Section */}
+      {/* Upload Photos */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Upload Existing Photos</Text>
+        <Button title="Upload Photos" onPress={uploadPhotos} />
+        {selectedPhotos.length > 0 && (
+          <ScrollView horizontal style={{ marginTop: 10 }}>
+            {selectedPhotos.map((photo, index) => (
+              <Image
+                key={index}
+                source={{ uri: photo.uri }}
+                style={{ width: 100, height: 100, marginRight: 8, borderRadius: 8 }}
+              />
+            ))}
+          </ScrollView>
+        )}
+      </View>
+
+      {/* Controls */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Controls</Text>
         <Button title="Test Swift Function" onPress={testSwiftFunction} />
         <View style={styles.buttonSpacing} />
-        <Button title="Start Object Capture" onPress={processCapturedPhotos} disabled={isProcessing} />
+        <Button
+          title="Start Object Capture"
+          onPress={processCapturedPhotos}
+          disabled={isProcessing}
+        />
         {isProcessing && (
           <View style={styles.buttonSpacing}>
             <Button title="Cancel Processing" onPress={cancelProcessing} color="red" />
@@ -205,7 +258,7 @@ export default function App() {
         )}
       </View>
 
-      {/* Progress Section */}
+      {/* Progress */}
       {isProcessing && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Progress</Text>
@@ -217,7 +270,7 @@ export default function App() {
         </View>
       )}
 
-      {/* 3D Model Viewer */}
+      {/* Model Viewer */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3D Model Viewer</Text>
         <MyModuleView
