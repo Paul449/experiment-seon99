@@ -1,0 +1,10 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "bcd2c33d-f52a-4095-bea9-7b6f92f16189",
+         "plugins": ["expo-image-picker"]
+      }
+    }
+  }
+}

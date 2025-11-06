@@ -109,11 +109,12 @@ export default function App() {
 };
 
   const processCapturedPhotos = async () => {
+    /*
     if (!deviceSupported) {
       Alert.alert('Not Supported', 'Photogrammetry is not supported on this device');
       return;
     }
-
+*/
     const totalPhotos = capturedPhotos + selectedPhotos.length;
     if (totalPhotos === 0) {
       Alert.alert('No Photos', 'Please capture or upload photos first');
@@ -140,16 +141,17 @@ export default function App() {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryHelper.startObjectCapture?.(
-        inputFolder,
-        outputPath,
-        'medium'
-      );
-      if (result && result.success) setModelUrl(outputPath);
+      const result = await PhotogrammetryHelper.startPhotogrammetrySession();
+      console.log('Photogrammetry result:', result);
+      setIsProcessing(false);
+      setProgress(1);
+      Alert.alert('Success!', result || 'Object capture completed!');
+      setModelUrl(outputPath);
     } catch (error) {
       console.error('Photogrammetry error:', error);
       setIsProcessing(false);
-      Alert.alert('Error', 'Processing failed.');
+      const errorMessage = error instanceof Error ? error.message : 'Processing failed.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
