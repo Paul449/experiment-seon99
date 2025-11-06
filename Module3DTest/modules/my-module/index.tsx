@@ -1,5 +1,6 @@
 import { requireNativeModule } from 'expo-modules-core';
 
-const PhotogrammetryHelper = requireNativeModule('PhotogrammetryHelper');
+export const PhotogrammetryHelper = requireNativeModule('PhotogrammetryHelper');
+export const MyModule = requireNativeModule('MyModule');
 
 export default PhotogrammetryHelper;
