@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MyModuleView } from './modules/my-module';
 import * as ImagePicker from 'expo-image-picker';
-import PhotogrammetryModule from './modules/my-module';
+import PhotogrammetryHelper from './modules/my-module';
 import MyModule from './modules/my-module';
 
 export default function App() {
@@ -39,8 +39,8 @@ export default function App() {
 
     return () => {
       try {
-        if (PhotogrammetryModule.removeAllListeners) {
-          PhotogrammetryModule.removeAllListeners('onChange');
+        if (PhotogrammetryHelper.removeAllListeners) {
+          PhotogrammetryHelper.removeAllListeners('onChange');
         }
       } catch (error) {
         console.log('Error removing listeners:', error);
@@ -50,8 +50,8 @@ export default function App() {
 
   const checkDeviceSupport = async () => {
     try {
-      const isSupported = await PhotogrammetryModule.isSupported?.();
-      const info = await PhotogrammetryModule.getDeviceInfo?.();
+      const isSupported = await PhotogrammetryHelper.isSupported?.();
+      const info = await PhotogrammetryHelper.getDeviceInfo?.();
       setDeviceSupported(!!isSupported);
       setDeviceInfo(info);
     } catch (error) {
@@ -62,8 +62,8 @@ export default function App() {
 
   const setupEventListeners = () => {
     try {
-      if (PhotogrammetryModule.addListener) {
-        PhotogrammetryModule.addListener('onChange', (event: any) => {
+      if (PhotogrammetryHelper.addListener) {
+        PhotogrammetryHelper.addListener('onChange', (event: any) => {
           if (event.type === 'progress') setProgress(event.progress || 0);
           else if (event.type === 'complete') {
             setIsProcessing(false);
@@ -109,11 +109,12 @@ export default function App() {
 };
 
   const processCapturedPhotos = async () => {
+    /*
     if (!deviceSupported) {
       Alert.alert('Not Supported', 'Photogrammetry is not supported on this device');
       return;
     }
-
+*/
     const totalPhotos = capturedPhotos + selectedPhotos.length;
     if (totalPhotos === 0) {
       Alert.alert('No Photos', 'Please capture or upload photos first');
@@ -140,22 +141,23 @@ export default function App() {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryModule.startObjectCapture?.(
-        inputFolder,
-        outputPath,
-        'medium'
-      );
-      if (result && result.success) setModelUrl(outputPath);
+      const result = await PhotogrammetryHelper.startPhotogrammetrySession();
+      console.log('Photogrammetry result:', result);
+      setIsProcessing(false);
+      setProgress(1);
+      Alert.alert('Success!', result || 'Object capture completed!');
+      setModelUrl(outputPath);
     } catch (error) {
       console.error('Photogrammetry error:', error);
       setIsProcessing(false);
-      Alert.alert('Error', 'Processing failed.');
+      const errorMessage = error instanceof Error ? error.message : 'Processing failed.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
   const cancelProcessing = async () => {
     try {
-      await PhotogrammetryModule.cancelCapture?.();
+      await PhotogrammetryHelper.cancelCapture?.();
       setIsProcessing(false);
       setProgress(0);
       Alert.alert('Cancelled', 'Object capture has been cancelled');

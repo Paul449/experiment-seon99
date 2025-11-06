@@ -18,7 +18,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "deploymentTarget": "16.0"
+      "deploymentTarget": "15.4"
     },
     "android": {
       "adaptiveIcon": {

@@ -14,36 +14,23 @@ import AVFoundation
 import ARKit
 #endif
 
-public class PhotogrammetryModule: Module {
+public class PhotogrammetryHelper: Module {
   public func definition() -> ModuleDefinition {
-    Name("PhotogrammetryModule")
+    Name("PhotogrammetryHelper")
 
     Events("onChange")
 
     AsyncFunction("startPhotogrammetrySession") { (promise: Promise) in
-      if #available(iOS 17.0, *) {
-        if PhotogrammetrySession.isSupported {
-          sendEvent("onChange", ["type": "status", "message": "Starting photogrammetry session..."])
-          performPhotogrammetrySession(promise)
-        } else if hasLiDARScanner() {
-          sendEvent("onChange", ["type": "status", "message": "Using LiDAR scan fallback..."])
-          performLiDARScan(promise)
-        } else if supportsBasicReconstruction() {
-          sendEvent("onChange", ["type": "status", "message": "Using basic reconstruction fallback..."])
-          performBasicReconstruction(promise)
-        } else {
-          promise.reject("UNSUPPORTED_DEVICE", "This device does not support any scanning features.")
-        }
+      // On iOS devices, PhotogrammetrySession is not available (macOS only)
+      // So we prioritize LiDAR scanning or camera-based reconstruction
+      if hasLiDARScanner() {
+        sendEvent("onChange", ["type": "status", "message": "Using LiDAR scanner for 3D capture..."])
+        performLiDARScan(promise)
+      } else if supportsBasicReconstruction() {
+        sendEvent("onChange", ["type": "status", "message": "Using camera for photo-based reconstruction..."])
+        performBasicReconstruction(promise)
       } else {
-        if hasLiDARScanner() {
-          sendEvent("onChange", ["type": "status", "message": "Using LiDAR scan fallback (older iOS)..."])
-          performLiDARScan(promise)
-        } else if supportsBasicReconstruction() {
-          sendEvent("onChange", ["type": "status", "message": "Using basic reconstruction fallback..."])
-          performBasicReconstruction(promise)
-        } else {
-          promise.reject("UNSUPPORTED_DEVICE", "This device does not support 3D scanning.")
-        }
+        promise.reject("UNSUPPORTED_DEVICE", "This device does not support 3D scanning. LiDAR or camera required.")
       }
     }
 
@@ -54,9 +41,9 @@ public class PhotogrammetryModule: Module {
         "basic_reconstruction": false
       ]
 
-      if #available(iOS 17.0, *), PhotogrammetrySession.isSupported {
-        features["photogrammetry"] = true
-      }
+      // PhotogrammetrySession is macOS only, not available on iOS
+      features["photogrammetry"] = false
+      
       if hasLiDARScanner() {
         features["lidar_scan"] = true
       }
@@ -68,30 +55,27 @@ public class PhotogrammetryModule: Module {
     }
 
     AsyncFunction("getRecommendedApproach") { () -> String in
-      if #available(iOS 17.0, *), PhotogrammetrySession.isSupported {
-        return "photogrammetry"
-      } else if hasLiDARScanner() {
+      if hasLiDARScanner() {
         return "lidar_scan"
       } else if supportsBasicReconstruction() {
         return "basic_reconstruction"
       }
       return "unsupported"
     }
-  }
 
-  // MARK: - Photogrammetry Session
-  @available(iOS 17.0, *)
-  private func performPhotogrammetrySession(_ promise: Promise) {
-    sendEvent("onChange", ["type": "progress", "progress": 0.1])
+    AsyncFunction("isSupported") { () -> Bool in
+      // Device is supported if it has LiDAR or a camera
+      return hasLiDARScanner() || supportsBasicReconstruction()
+    }
 
-    Task {
-      try await Task.sleep(nanoseconds: 2_000_000_000)
-      sendEvent("onChange", ["type": "progress", "progress": 0.5])
-
-      try await Task.sleep(nanoseconds: 2_000_000_000)
-      sendEvent("onChange", ["type": "progress", "progress": 1.0])
-
-      promise.resolve("Photogrammetry session completed successfully.")
+    AsyncFunction("getDeviceInfo") { () -> [String: Any] in
+      let device = UIDevice.current
+      return [
+        "model": device.model,
+        "systemVersion": device.systemVersion,
+        "hasLiDAR": hasLiDARScanner(),
+        "hasCamera": supportsBasicReconstruction()
+      ]
     }
   }
 
@@ -139,8 +123,10 @@ public class PhotogrammetryModule: Module {
   // MARK: - Hardware Checks
   private func hasLiDARScanner() -> Bool {
     #if canImport(AVFoundation)
-    if let device = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) {
-      return device.isConnected
+    if #available(iOS 15.4, *) {
+      if let device = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back) {
+        return device.isConnected
+      }
     }
     #endif
     return false
