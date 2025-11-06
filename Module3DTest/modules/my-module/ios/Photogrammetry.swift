@@ -14,9 +14,9 @@ import AVFoundation
 import ARKit
 #endif
 
-public class PhotogrammetryModule: Module {
+public class PhotogrammetryHelper: Module {
   public func definition() -> ModuleDefinition {
-    Name("PhotogrammetryModule")
+    Name("PhotogrammetryHelper")
 
     Events("onChange")
 

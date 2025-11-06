@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { MyModuleView } from './modules/my-module';
 import * as ImagePicker from 'expo-image-picker';
-import PhotogrammetryModule from './modules/my-module';
+import PhotogrammetryHelper from './modules/my-module';
 import MyModule from './modules/my-module';
 
 export default function App() {
@@ -39,8 +39,8 @@ export default function App() {
 
     return () => {
       try {
-        if (PhotogrammetryModule.removeAllListeners) {
-          PhotogrammetryModule.removeAllListeners('onChange');
+        if (PhotogrammetryHelper.removeAllListeners) {
+          PhotogrammetryHelper.removeAllListeners('onChange');
         }
       } catch (error) {
         console.log('Error removing listeners:', error);
@@ -50,8 +50,8 @@ export default function App() {
 
   const checkDeviceSupport = async () => {
     try {
-      const isSupported = await PhotogrammetryModule.isSupported?.();
-      const info = await PhotogrammetryModule.getDeviceInfo?.();
+      const isSupported = await PhotogrammetryHelper.isSupported?.();
+      const info = await PhotogrammetryHelper.getDeviceInfo?.();
       setDeviceSupported(!!isSupported);
       setDeviceInfo(info);
     } catch (error) {
@@ -62,8 +62,8 @@ export default function App() {
 
   const setupEventListeners = () => {
     try {
-      if (PhotogrammetryModule.addListener) {
-        PhotogrammetryModule.addListener('onChange', (event: any) => {
+      if (PhotogrammetryHelper.addListener) {
+        PhotogrammetryHelper.addListener('onChange', (event: any) => {
           if (event.type === 'progress') setProgress(event.progress || 0);
           else if (event.type === 'complete') {
             setIsProcessing(false);
@@ -140,7 +140,7 @@ export default function App() {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryModule.startObjectCapture?.(
+      const result = await PhotogrammetryHelper.startObjectCapture?.(
         inputFolder,
         outputPath,
         'medium'
@@ -155,7 +155,7 @@ export default function App() {
 
   const cancelProcessing = async () => {
     try {
-      await PhotogrammetryModule.cancelCapture?.();
+      await PhotogrammetryHelper.cancelCapture?.();
       setIsProcessing(false);
       setProgress(0);
       Alert.alert('Cancelled', 'Object capture has been cancelled');
