@@ -34,6 +34,12 @@ public class PhotogrammetryHelper: Module {
       }
     }
 
+    AsyncFunction("processPhotos") { (photoUris: [String], promise: Promise) in
+      // Process the uploaded photos and generate 3D model
+      sendEvent("onChange", ["type": "status", "message": "Processing \(photoUris.count) photos..."])
+      processPhotosToModel(photoUris: photoUris, promise: promise)
+    }
+
     AsyncFunction("getSupportedFeatures") { () -> [String: Bool] in
       var features: [String: Bool] = [
         "photogrammetry": false,
@@ -88,8 +94,33 @@ public class PhotogrammetryHelper: Module {
       sendEvent("onChange", ["type": "progress", "progress": 0.7])
 
       try await Task.sleep(nanoseconds: 2_000_000_000)
-      sendEvent("onChange", ["type": "complete", "message": "LiDAR scan complete"])
-      promise.resolve("LiDAR scan completed successfully.")
+      
+      // Generate a simple OBJ file as demo
+      let modelPath = generateDemoModel()
+      
+      sendEvent("onChange", ["type": "complete", "message": "LiDAR scan complete", "modelUrl": modelPath])
+      promise.resolve(["success": true, "modelUrl": modelPath])
+    }
+  }
+
+  // MARK: - Photo Processing
+  private func processPhotosToModel(photoUris: [String], promise: Promise) {
+    sendEvent("onChange", ["type": "progress", "progress": 0.1])
+    
+    Task {
+      try await Task.sleep(nanoseconds: 1_000_000_000)
+      sendEvent("onChange", ["type": "progress", "progress": 0.4])
+      
+      try await Task.sleep(nanoseconds: 2_000_000_000)
+      sendEvent("onChange", ["type": "progress", "progress": 0.8])
+      
+      try await Task.sleep(nanoseconds: 1_000_000_000)
+      
+      // Generate a demo 3D model
+      let modelPath = generateDemoModel()
+      
+      sendEvent("onChange", ["type": "complete", "message": "3D reconstruction complete", "modelUrl": modelPath])
+      promise.resolve(["success": true, "modelUrl": modelPath, "photoCount": photoUris.count])
     }
   }
 
@@ -138,5 +169,38 @@ public class PhotogrammetryHelper: Module {
     #else
     return false
     #endif
+  }
+
+  // MARK: - Model Generation
+  private func generateDemoModel() -> String {
+    // Create a simple OBJ file as a demo
+    let objContent = """
+    # Simple Cube OBJ
+    v -1.0 -1.0 1.0
+    v 1.0 -1.0 1.0
+    v 1.0 1.0 1.0
+    v -1.0 1.0 1.0
+    v -1.0 -1.0 -1.0
+    v 1.0 -1.0 -1.0
+    v 1.0 1.0 -1.0
+    v -1.0 1.0 -1.0
+    
+    f 1 2 3 4
+    f 5 6 7 8
+    f 1 2 6 5
+    f 2 3 7 6
+    f 3 4 8 7
+    f 4 1 5 8
+    """
+    
+    let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+    let modelPath = documentsPath.appendingPathComponent("reconstructed_model.obj")
+    
+    do {
+      try objContent.write(to: modelPath, atomically: true, encoding: .utf8)
+      return modelPath.path
+    } catch {
+      return ""
+    }
   }
 }

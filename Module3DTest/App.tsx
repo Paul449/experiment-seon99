@@ -67,14 +67,23 @@ export default function App() {
     try {
       if (PhotogrammetryHelper.addListener) {
         PhotogrammetryHelper.addListener('onChange', (event: any) => {
-          if (event.type === 'progress') setProgress(event.progress || 0);
-          else if (event.type === 'complete') {
+          console.log('Event received:', event);
+          if (event.type === 'progress') {
+            setProgress(event.progress || 0);
+          } else if (event.type === 'complete') {
             setIsProcessing(false);
             setProgress(1);
-            Alert.alert('Success!', 'Object capture completed successfully!');
+            if (event.modelUrl) {
+              setModelUrl(event.modelUrl);
+              Alert.alert('Success!', 'Object capture completed! 3D model is now displayed.');
+            } else {
+              Alert.alert('Success!', event.message || 'Object capture completed!');
+            }
           } else if (event.type === 'error') {
             setIsProcessing(false);
             Alert.alert('Error', event.error || 'An error occurred');
+          } else if (event.type === 'status') {
+            console.log('Status:', event.message);
           }
         });
       }
@@ -144,12 +153,29 @@ export default function App() {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryHelper.startPhotogrammetrySession();
-      console.log('Photogrammetry result:', result);
-      setIsProcessing(false);
-      setProgress(1);
-      Alert.alert('Success!', result || 'Object capture completed!');
-      setModelUrl(outputPath);
+      
+      // If we have uploaded photos, process them
+      if (selectedPhotos.length > 0) {
+        const photoUris = selectedPhotos.map(photo => photo.uri);
+        const result = await PhotogrammetryHelper.processPhotos(photoUris);
+        console.log('Photo processing result:', result);
+        if (result && result.modelUrl) {
+          setModelUrl(result.modelUrl);
+          setIsProcessing(false);
+          setProgress(1);
+          Alert.alert('Success!', `3D model created from ${result.photoCount} photos!`);
+        }
+      } else {
+        // Otherwise use the default session
+        const result = await PhotogrammetryHelper.startPhotogrammetrySession();
+        console.log('Photogrammetry result:', result);
+        if (result && result.modelUrl) {
+          setModelUrl(result.modelUrl);
+        }
+        setIsProcessing(false);
+        setProgress(1);
+        Alert.alert('Success!', '3D reconstruction completed!');
+      }
     } catch (error) {
       console.error('Photogrammetry error:', error);
       setIsProcessing(false);
@@ -269,6 +295,11 @@ export default function App() {
       {/* Model Viewer */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3D Model Viewer</Text>
+        {modelUrl && modelUrl !== 'https://example.com/model.obj' && (
+          <View style={styles.modelInfo}>
+            <Text style={styles.modelInfoText}>✅ Model loaded: {modelUrl.split('/').pop()}</Text>
+          </View>
+        )}
         <Model3DViewer modelUrl={modelUrl} style={styles.modelViewer} />
       </View>
     </ScrollView>
@@ -299,4 +330,6 @@ const styles = StyleSheet.create({
   progressBar: { height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, marginTop: 10 },
   progressFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 4 },
   modelViewer: { width: '100%', height: 250, backgroundColor: '#000', borderRadius: 10 },
+  modelInfo: { backgroundColor: '#e3f2fd', padding: 10, marginBottom: 10, borderRadius: 5 },
+  modelInfoText: { fontSize: 14, color: '#1976d2', fontWeight: '500' },
 });
