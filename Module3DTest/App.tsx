@@ -12,6 +12,7 @@ import {
 import { MyModuleView } from './modules/my-module';
 import { requireNativeModule } from 'expo-modules-core';
 import * as ImagePicker from 'expo-image-picker';
+import Model3DViewer from './components/Model3DViewer';
 
 const PhotogrammetryHelper = requireNativeModule('PhotogrammetryHelper');
 const MyModule = requireNativeModule('MyModule');
@@ -268,11 +269,7 @@ export default function App() {
       {/* Model Viewer */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3D Model Viewer</Text>
-        <MyModuleView
-          url={modelUrl}
-          onLoad={(event) => console.log('Model loaded:', event.nativeEvent?.url)}
-          style={styles.modelViewer}
-        />
+        <Model3DViewer modelUrl={modelUrl} style={styles.modelViewer} />
       </View>
     </ScrollView>
   );
