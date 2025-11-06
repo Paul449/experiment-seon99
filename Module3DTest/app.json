@@ -17,7 +17,8 @@
       "bundleIdentifier": "com.paulbilbatua99.Module3DTest",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      }
+      },
+      "deploymentTarget": "16.0"
     },
     "android": {
       "adaptiveIcon": {

@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { MyModuleView } from './modules/my-module';
+import * as ImagePicker from 'expo-image-picker';
 import PhotogrammetryModule from './modules/my-module';
 import MyModule from './modules/my-module';
 
@@ -21,7 +21,7 @@ export default function App() {
   const [deviceInfo, setDeviceInfo] = useState<any>(null);
   const [modelUrl, setModelUrl] = useState<string>('https://example.com/model.obj');
   const [capturedPhotos, setCapturedPhotos] = useState<number>(0);
-  const [selectedPhotos, setSelectedPhotos] = useState<any[]>([]);
+  const [selectedPhotos, setSelectedPhotos] = useState<{ uri: string }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -50,12 +50,9 @@ export default function App() {
 
   const checkDeviceSupport = async () => {
     try {
-      const isSupported = await PhotogrammetryModule.isSupported();
-      let info = null;
-      if (PhotogrammetryModule.getDeviceInfo) {
-        info = await PhotogrammetryModule.getDeviceInfo();
-      }
-      setDeviceSupported(isSupported);
+      const isSupported = await PhotogrammetryModule.isSupported?.();
+      const info = await PhotogrammetryModule.getDeviceInfo?.();
+      setDeviceSupported(!!isSupported);
       setDeviceInfo(info);
     } catch (error) {
       console.error('Error checking device support:', error);
@@ -67,9 +64,8 @@ export default function App() {
     try {
       if (PhotogrammetryModule.addListener) {
         PhotogrammetryModule.addListener('onChange', (event: any) => {
-          if (event.type === 'progress') {
-            setProgress(event.progress || 0);
-          } else if (event.type === 'complete') {
+          if (event.type === 'progress') setProgress(event.progress || 0);
+          else if (event.type === 'complete') {
             setIsProcessing(false);
             setProgress(1);
             Alert.alert('Success!', 'Object capture completed successfully!');
@@ -102,23 +98,15 @@ export default function App() {
   };
 
   const uploadPhotos = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsMultipleSelection: true,
-        quality: 1,
-      });
+  const result = await ImagePicker.launchImageLibraryAsync({
+    allowsMultipleSelection: true,
+    quality: 1,
+  });
 
-      if (!result.canceled) {
-        setSelectedPhotos(result.assets);
-        console.log('✅ Selected photos:', result.assets.map((a) => a.uri));
-        Alert.alert('Photos Selected', `${result.assets.length} photo(s) added!`);
-      }
-    } catch (error) {
-      console.error('Error selecting images:', error);
-      Alert.alert('Error', 'Failed to open photo library.');
-    }
-  };
+  if (!result.canceled) {
+    setSelectedPhotos(result.assets);
+  }
+};
 
   const processCapturedPhotos = async () => {
     if (!deviceSupported) {
@@ -152,14 +140,12 @@ export default function App() {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryModule.startObjectCapture(
+      const result = await PhotogrammetryModule.startObjectCapture?.(
         inputFolder,
         outputPath,
         'medium'
       );
-      if (result && result.success) {
-        setModelUrl(outputPath);
-      }
+      if (result && result.success) setModelUrl(outputPath);
     } catch (error) {
       console.error('Photogrammetry error:', error);
       setIsProcessing(false);
@@ -169,12 +155,10 @@ export default function App() {
 
   const cancelProcessing = async () => {
     try {
-      if (PhotogrammetryModule.cancelCapture) {
-        await PhotogrammetryModule.cancelCapture();
-        setIsProcessing(false);
-        setProgress(0);
-        Alert.alert('Cancelled', 'Object capture has been cancelled');
-      }
+      await PhotogrammetryModule.cancelCapture?.();
+      setIsProcessing(false);
+      setProgress(0);
+      Alert.alert('Cancelled', 'Object capture has been cancelled');
     } catch (error) {
       console.error('Cancel error:', error);
     }
@@ -182,7 +166,7 @@ export default function App() {
 
   const testSwiftFunction = async () => {
     try {
-      if (MyModule && typeof MyModule.hello === 'function') {
+      if (MyModule?.hello) {
         const result = await MyModule.hello();
         Alert.alert('Swift Says:', result);
       }
@@ -231,15 +215,22 @@ export default function App() {
         {selectedPhotos.length > 0 && (
           <ScrollView horizontal style={{ marginTop: 10 }}>
             {selectedPhotos.map((photo, index) => (
-              <Image
-                key={index}
-                source={{ uri: photo.uri }}
-                style={{ width: 100, height: 100, marginRight: 8, borderRadius: 8 }}
-              />
+              <View key={`photo-${index}`}>
+                <Image
+                  source={{ uri: photo.uri }}
+                  style={{
+                    width: 100,
+                    height: 100,
+                    marginRight: 8,
+                    borderRadius: 8,
+                  }}
+                />
+              </View>
             ))}
           </ScrollView>
         )}
-      </View>
+  </View>
+
 
       {/* Controls */}
       <View style={styles.section}>
