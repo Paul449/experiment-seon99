@@ -133,12 +133,22 @@ export default function App() {
       return;
     }
 
+    // Check minimum photo requirement
+    if (selectedPhotos.length > 0 && selectedPhotos.length < 10) {
+      Alert.alert(
+        'Insufficient Photos',
+        `You have ${selectedPhotos.length} photo(s). At least 10-20 photos are recommended for quality 3D reconstruction.\n\nTips:\n• Capture photos from all angles (360°)\n• Keep consistent distance\n• Ensure good lighting\n• Avoid motion blur`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const inputFolder = '/path/to/photos/';
     const outputPath = '/path/to/output/model.usdz';
 
     Alert.alert(
       'Ready to Process',
-      `You have ${totalPhotos} photo(s).\nStarting 3D reconstruction...`,
+      `You have ${totalPhotos} photo(s).\nStarting 3D reconstruction...\n\nThis may take several minutes.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -242,25 +252,34 @@ export default function App() {
       {/* Upload Photos */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Upload Existing Photos</Text>
+        <Text style={styles.instructionText}>
+          📸 Upload at least 10-20 photos for best results
+        </Text>
         <Button title="Upload Photos" onPress={uploadPhotos} />
         {selectedPhotos.length > 0 && (
-          <ScrollView horizontal style={{ marginTop: 10 }}>
-            {selectedPhotos.map((photo, index) => (
-              <View key={`photo-${index}`}>
-                <Image
-                  source={{ uri: photo.uri }}
-                  style={{
-                    width: 100,
-                    height: 100,
-                    marginRight: 8,
-                    borderRadius: 8,
-                  }}
-                />
-              </View>
-            ))}
-          </ScrollView>
+          <View>
+            <Text style={[styles.photoCount, { marginTop: 10 }]}>
+              {selectedPhotos.length} photos selected
+              {selectedPhotos.length < 10 && ' (minimum 10 recommended)'}
+            </Text>
+            <ScrollView horizontal style={{ marginTop: 10 }}>
+              {selectedPhotos.map((photo, index) => (
+                <View key={`photo-${index}`}>
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      marginRight: 8,
+                      borderRadius: 8,
+                    }}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
         )}
-  </View>
+      </View>
 
 
       {/* Controls */}
@@ -321,6 +340,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  instructionText: { fontSize: 14, color: '#666', marginBottom: 10, fontStyle: 'italic' },
   deviceInfo: { backgroundColor: '#f8f9fa', padding: 10, borderRadius: 5 },
   photoInfo: { backgroundColor: '#e8f5e8', padding: 10, marginTop: 10, borderRadius: 5 },
   photoCount: { fontSize: 16, fontWeight: '600', color: '#2e7d32' },
