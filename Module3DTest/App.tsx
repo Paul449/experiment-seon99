@@ -226,11 +226,29 @@ export default function App() {
             <Text>Model: {deviceInfo.model || 'Unknown'}</Text>
             <Text>iOS: {deviceInfo.systemVersion || 'Unknown'}</Text>
             <Text>
-              Photogrammetry: {deviceSupported ? '✅ Supported' : '❌ Not Supported'}
+              Object Capture: {deviceInfo.supportsObjectCapture ? '✅ Fully Supported' : '❌ Not Supported'}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              Method: {deviceInfo.objectCaptureMethod || 'Unknown'}
             </Text>
             <Text>
               LiDAR: {deviceInfo.hasLiDAR ? '✅ Available' : '❌ Not Available'}
             </Text>
+            {deviceInfo.supportsObjectCapture && (
+              <Text style={{ color: '#4caf50', marginTop: 5, fontWeight: '600' }}>
+                ✅ Real photogrammetry enabled (iOS 17+ with LiDAR)
+              </Text>
+            )}
+            {!deviceInfo.supportsObjectCapture && deviceInfo.hasLiDAR && (
+              <Text style={{ color: '#ff9800', marginTop: 5 }}>
+                ⚠️ Update to iOS 17+ for real Object Capture
+              </Text>
+            )}
+            {!deviceInfo.hasLiDAR && (
+              <Text style={{ color: '#f44336', marginTop: 5 }}>
+                ⚠️ LiDAR scanner required (iPad Pro 2020+, iPhone 12 Pro+)
+              </Text>
+            )}
           </View>
         ) : (
           <Text>Loading device info...</Text>
