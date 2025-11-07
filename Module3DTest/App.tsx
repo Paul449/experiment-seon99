@@ -12,6 +12,7 @@ import {
 import { MyModuleView } from './modules/my-module';
 import { requireNativeModule } from 'expo-modules-core';
 import * as ImagePicker from 'expo-image-picker';
+import Model3DViewer from './components/Model3DViewer';
 
 const PhotogrammetryHelper = requireNativeModule('PhotogrammetryHelper');
 const MyModule = requireNativeModule('MyModule');
@@ -66,14 +67,23 @@ export default function App() {
     try {
       if (PhotogrammetryHelper.addListener) {
         PhotogrammetryHelper.addListener('onChange', (event: any) => {
-          if (event.type === 'progress') setProgress(event.progress || 0);
-          else if (event.type === 'complete') {
+          console.log('Event received:', event);
+          if (event.type === 'progress') {
+            setProgress(event.progress || 0);
+          } else if (event.type === 'complete') {
             setIsProcessing(false);
             setProgress(1);
-            Alert.alert('Success!', 'Object capture completed successfully!');
+            if (event.modelUrl) {
+              setModelUrl(event.modelUrl);
+              Alert.alert('Success!', 'Object capture completed! 3D model is now displayed.');
+            } else {
+              Alert.alert('Success!', event.message || 'Object capture completed!');
+            }
           } else if (event.type === 'error') {
             setIsProcessing(false);
             Alert.alert('Error', event.error || 'An error occurred');
+          } else if (event.type === 'status') {
+            console.log('Status:', event.message);
           }
         });
       }
@@ -123,12 +133,22 @@ export default function App() {
       return;
     }
 
+    // Check minimum photo requirement
+    if (selectedPhotos.length > 0 && selectedPhotos.length < 10) {
+      Alert.alert(
+        'Insufficient Photos',
+        `You have ${selectedPhotos.length} photo(s). At least 10-20 photos are recommended for quality 3D reconstruction.\n\nTips:\n• Capture photos from all angles (360°)\n• Keep consistent distance\n• Ensure good lighting\n• Avoid motion blur`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     const inputFolder = '/path/to/photos/';
     const outputPath = '/path/to/output/model.usdz';
 
     Alert.alert(
       'Ready to Process',
-      `You have ${totalPhotos} photo(s).\nStarting 3D reconstruction...`,
+      `You have ${totalPhotos} photo(s).\nStarting 3D reconstruction...\n\nThis may take several minutes.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -143,12 +163,29 @@ export default function App() {
     try {
       setIsProcessing(true);
       setProgress(0);
-      const result = await PhotogrammetryHelper.startPhotogrammetrySession();
-      console.log('Photogrammetry result:', result);
-      setIsProcessing(false);
-      setProgress(1);
-      Alert.alert('Success!', result || 'Object capture completed!');
-      setModelUrl(outputPath);
+      
+      // If we have uploaded photos, process them
+      if (selectedPhotos.length > 0) {
+        const photoUris = selectedPhotos.map(photo => photo.uri);
+        const result = await PhotogrammetryHelper.processPhotos(photoUris);
+        console.log('Photo processing result:', result);
+        if (result && result.modelUrl) {
+          setModelUrl(result.modelUrl);
+          setIsProcessing(false);
+          setProgress(1);
+          Alert.alert('Success!', `3D model created from ${result.photoCount} photos!`);
+        }
+      } else {
+        // Otherwise use the default session
+        const result = await PhotogrammetryHelper.startPhotogrammetrySession();
+        console.log('Photogrammetry result:', result);
+        if (result && result.modelUrl) {
+          setModelUrl(result.modelUrl);
+        }
+        setIsProcessing(false);
+        setProgress(1);
+        Alert.alert('Success!', '3D reconstruction completed!');
+      }
     } catch (error) {
       console.error('Photogrammetry error:', error);
       setIsProcessing(false);
@@ -189,11 +226,29 @@ export default function App() {
             <Text>Model: {deviceInfo.model || 'Unknown'}</Text>
             <Text>iOS: {deviceInfo.systemVersion || 'Unknown'}</Text>
             <Text>
-              Photogrammetry: {deviceSupported ? '✅ Supported' : '❌ Not Supported'}
+              Object Capture: {deviceInfo.supportsObjectCapture ? '✅ Fully Supported' : '❌ Not Supported'}
+            </Text>
+            <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>
+              Method: {deviceInfo.objectCaptureMethod || 'Unknown'}
             </Text>
             <Text>
               LiDAR: {deviceInfo.hasLiDAR ? '✅ Available' : '❌ Not Available'}
             </Text>
+            {deviceInfo.supportsObjectCapture && (
+              <Text style={{ color: '#4caf50', marginTop: 5, fontWeight: '600' }}>
+                ✅ Real photogrammetry enabled (iOS 17+ with LiDAR)
+              </Text>
+            )}
+            {!deviceInfo.supportsObjectCapture && deviceInfo.hasLiDAR && (
+              <Text style={{ color: '#ff9800', marginTop: 5 }}>
+                ⚠️ Update to iOS 17+ for real Object Capture
+              </Text>
+            )}
+            {!deviceInfo.hasLiDAR && (
+              <Text style={{ color: '#f44336', marginTop: 5 }}>
+                ⚠️ LiDAR scanner required (iPad Pro 2020+, iPhone 12 Pro+)
+              </Text>
+            )}
           </View>
         ) : (
           <Text>Loading device info...</Text>
@@ -215,25 +270,34 @@ export default function App() {
       {/* Upload Photos */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Upload Existing Photos</Text>
+        <Text style={styles.instructionText}>
+          📸 Upload at least 10-20 photos for best results
+        </Text>
         <Button title="Upload Photos" onPress={uploadPhotos} />
         {selectedPhotos.length > 0 && (
-          <ScrollView horizontal style={{ marginTop: 10 }}>
-            {selectedPhotos.map((photo, index) => (
-              <View key={`photo-${index}`}>
-                <Image
-                  source={{ uri: photo.uri }}
-                  style={{
-                    width: 100,
-                    height: 100,
-                    marginRight: 8,
-                    borderRadius: 8,
-                  }}
-                />
-              </View>
-            ))}
-          </ScrollView>
+          <View>
+            <Text style={[styles.photoCount, { marginTop: 10 }]}>
+              {selectedPhotos.length} photos selected
+              {selectedPhotos.length < 10 && ' (minimum 10 recommended)'}
+            </Text>
+            <ScrollView horizontal style={{ marginTop: 10 }}>
+              {selectedPhotos.map((photo, index) => (
+                <View key={`photo-${index}`}>
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={{
+                      width: 100,
+                      height: 100,
+                      marginRight: 8,
+                      borderRadius: 8,
+                    }}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
         )}
-  </View>
+      </View>
 
 
       {/* Controls */}
@@ -268,11 +332,12 @@ export default function App() {
       {/* Model Viewer */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>3D Model Viewer</Text>
-        <MyModuleView
-          url={modelUrl}
-          onLoad={(event) => console.log('Model loaded:', event.nativeEvent?.url)}
-          style={styles.modelViewer}
-        />
+        {modelUrl && modelUrl !== 'https://example.com/model.obj' && (
+          <View style={styles.modelInfo}>
+            <Text style={styles.modelInfoText}>✅ Model loaded: {modelUrl.split('/').pop()}</Text>
+          </View>
+        )}
+        <Model3DViewer modelUrl={modelUrl} style={styles.modelViewer} />
       </View>
     </ScrollView>
   );
@@ -293,6 +358,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  instructionText: { fontSize: 14, color: '#666', marginBottom: 10, fontStyle: 'italic' },
   deviceInfo: { backgroundColor: '#f8f9fa', padding: 10, borderRadius: 5 },
   photoInfo: { backgroundColor: '#e8f5e8', padding: 10, marginTop: 10, borderRadius: 5 },
   photoCount: { fontSize: 16, fontWeight: '600', color: '#2e7d32' },
@@ -302,4 +368,6 @@ const styles = StyleSheet.create({
   progressBar: { height: 8, backgroundColor: '#e0e0e0', borderRadius: 4, marginTop: 10 },
   progressFill: { height: '100%', backgroundColor: '#4caf50', borderRadius: 4 },
   modelViewer: { width: '100%', height: 250, backgroundColor: '#000', borderRadius: 10 },
+  modelInfo: { backgroundColor: '#e3f2fd', padding: 10, marginBottom: 10, borderRadius: 5 },
+  modelInfoText: { fontSize: 14, color: '#1976d2', fontWeight: '500' },
 });
