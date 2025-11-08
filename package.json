@@ -16,5 +16,9 @@
     "url": "https://github.com/Paul449/experiment-seon99/issues"
   },
   "homepage": "https://github.com/Paul449/experiment-seon99#readme",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "expo": "^54.0.23",
+    "expo-dev-client": "~6.0.17"
+  }
 }
