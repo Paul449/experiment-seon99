@@ -1,13 +1,25 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, Button } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+import { requireNativeModule } from 'expo-modules-core';
+
+const MyModule = requireNativeModule('MyModule');
 
 export default function HomeScreen() {
+  const handleHello = () => {
+    const result = MyModule.hello();
+    alert(result);
+  };
+
+  const handleSetValue = async () => {
+    await MyModule.setValueAsync('Test Value');
+  };
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -20,6 +32,12 @@ export default function HomeScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome!</ThemedText>
         <HelloWave />
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">MyModule Test</ThemedText>
+        <Button title="Call Hello" onPress={handleHello} />
+        <Button title="Set Value Async" onPress={handleSetValue} />
+        <ThemedText>PI constant: {MyModule.PI}</ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
