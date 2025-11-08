@@ -1,0 +1,12 @@
+1- Run npx create-expo-module --local to create a new module within your project. This will generate a modules folder containing the necessary native code structure for your module.
+
+2-Inside the generated module's ios and android directories, you'll find example files (e.g., ExpoMyModuleModule.swift for iOS, ExpoMyModuleModule.kt for Android).
+Modify these files to implement your desired native functionality. This includes defining functions or views that you want to expose to JavaScript.
+
+3- Import custom native module
+
+        import ExpoMyModule from 'expo-my-module'; // Replace 'expo-my-module' with your module name
+
+
+4- Build from main project
+        import ExpoMyModule from 'expo-my-module'; // Replace 'expo-my-module' with your module name
