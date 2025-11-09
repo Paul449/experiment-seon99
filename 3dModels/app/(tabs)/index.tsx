@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { Image } from 'expo-image';
 import { Platform, StyleSheet, Button } from 'react-native';
 
@@ -11,6 +13,27 @@ import { requireNativeModule } from 'expo-modules-core';
 const MyModule = requireNativeModule('MyModule');
 
 export default function HomeScreen() {
+  const [progress, setProgress] = useState<number | null>(null);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  useEffect(() => {
+    const subscriptions = [
+      MyModule.addListener('onProgress', (event: { fractionComplete: number }) => {
+        setProgress(event.fractionComplete);
+      }),
+      MyModule.addListener('onLog', (event: { message: string }) => {
+        setLogs((current) => [event.message, ...current].slice(0, 5));
+      }),
+      MyModule.addListener('onError', (event: { message: string }) => {
+        alert(`Photogrammetry error: ${event.message}`);
+      }),
+    ];
+
+    return () => {
+      subscriptions.forEach((subscription) => subscription.remove());
+    };
+  }, []);
+
   const handleHello = () => {
     const result = MyModule.hello();
     alert(result);
@@ -18,6 +41,25 @@ export default function HomeScreen() {
 
   const handleSetValue = async () => {
     await MyModule.setValueAsync('Test Value');
+  };
+
+  const handlePhotogrammetry = async () => {
+    try {
+      const result = await MyModule.processPhotogrammetry({
+        inputFolder: '/path/to/images',
+        outputFile: '/tmp/object.usdz',
+        detail: 'preview',
+      });
+      alert(`Model created at: ${result}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('Photogrammetry failed', error);
+      alert(`Photogrammetry failed: ${message}`);
+    }
+  };
+
+  const handlePhotogrammetryCancel = () => {
+    MyModule.cancelPhotogrammetry();
   };
 
   return (
@@ -38,6 +80,25 @@ export default function HomeScreen() {
         <Button title="Call Hello" onPress={handleHello} />
         <Button title="Set Value Async" onPress={handleSetValue} />
         <ThemedText>PI constant: {MyModule.PI}</ThemedText>
+      </ThemedView>
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Photogrammetry</ThemedText>
+        <Button title="Start Photogrammetry" onPress={handlePhotogrammetry} />
+        <Button title="Cancel Photogrammetry" onPress={handlePhotogrammetryCancel} />
+        {progress !== null && (
+          <ThemedText>
+            Progress: {(progress * 100).toFixed(1)}%
+          </ThemedText>
+        )}
+        {logs.length > 0 && (
+          <ThemedView style={styles.logsContainer}>
+            {logs.map((entry, index) => (
+              <ThemedText key={index} style={styles.logItem}>
+                {entry}
+              </ThemedText>
+            ))}
+          </ThemedView>
+        )}
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
@@ -112,5 +173,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     position: 'absolute',
+  },
+  logsContainer: {
+    gap: 4,
+    paddingVertical: 4,
+  },
+  logItem: {
+    fontSize: 12,
   },
 });
