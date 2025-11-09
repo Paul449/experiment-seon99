@@ -1,23 +1,23 @@
 import ExpoModulesCore
 import Foundation
 import os
-
-#if os(macOS)
 import RealityKit
-#endif
 
 public final class MyModule: Module {
   private let logger = Logger(subsystem: "com.apple.sample.photogrammetry",
                               category: "ExpoPhotogrammetry")
 
-#if os(macOS)
-  @available(macOS 12.0, *)
-  private var session: PhotogrammetrySession?
-  @available(macOS 12.0, *)
+  #if os(iOS) || os(macOS)
+  private var sessionStorage: Any?
   private var waiter: Task<Void, Never>?
-  @available(macOS 12.0, *)
   private var continuation: CheckedContinuation<String, Error>?
-#endif
+
+  @available(iOS 17.0, macOS 12.0, *)
+  private var session: PhotogrammetrySession? {
+    get { sessionStorage as? PhotogrammetrySession }
+    set { sessionStorage = newValue }
+  }
+  #endif
 
   public func definition() -> ModuleDefinition {
     Name("MyModule")
@@ -38,9 +38,8 @@ public final class MyModule: Module {
       ])
     }
 
-#if os(macOS)
     AsyncFunction("processPhotogrammetry") { (options: PhotogrammetryOptions) -> String in
-      if #available(macOS 12.0, *) {
+      if #available(iOS 17.0, macOS 12.0, *) {
         return try await self.processPhotogrammetry(options: options)
       } else {
         throw PhotogrammetryError.notSupported
@@ -48,17 +47,10 @@ public final class MyModule: Module {
     }
 
     Function("cancelPhotogrammetry") {
-      if #available(macOS 12.0, *) {
+      if #available(iOS 17.0, macOS 12.0, *) {
         self.cancelProcessing()
       }
     }
-#else
-    AsyncFunction("processPhotogrammetry") { (_: PhotogrammetryOptions) -> String in
-      throw PhotogrammetryError.notSupported
-    }
-
-    Function("cancelPhotogrammetry") {}
-#endif
 
     View(MyModuleView.self) {
       Prop("url") { (view: MyModuleView, url: URL) in
@@ -71,16 +63,10 @@ public final class MyModule: Module {
     }
   }
 
-#if os(macOS)
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func processPhotogrammetry(options: PhotogrammetryOptions) async throws -> String {
     guard continuation == nil else {
       throw PhotogrammetryError.processingInProgress
-    }
-
-    guard PhotogrammetrySession.isSupported else {
-      emit("onError", ["message": PhotogrammetryError.notSupported.localizedDescription])
-      throw PhotogrammetryError.notSupported
     }
 
     let inputFolderUrl = URL(fileURLWithPath: options.inputFolder, isDirectory: true)
@@ -118,7 +104,7 @@ public final class MyModule: Module {
     }
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func handleSessionOutput(_ output: PhotogrammetrySession.Output) {
     switch output {
       case .processingComplete:
@@ -166,7 +152,7 @@ public final class MyModule: Module {
     }
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func handleRequestResult(_ result: PhotogrammetrySession.Result) {
     switch result {
       case .modelFile(let url):
@@ -182,7 +168,7 @@ public final class MyModule: Module {
     }
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func handleSessionError(_ error: Error) {
     logger.error("Session error: \(String(describing: error))")
     emit("onError", ["message": String(describing: error)])
@@ -190,14 +176,14 @@ public final class MyModule: Module {
     resumeContinuationIfNeeded(.failure(error))
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func resumeContinuationIfNeeded(_ result: Result<String, Error>) {
     guard let continuation else { return }
     self.continuation = nil
     continuation.resume(with: result)
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func clearSession(shouldCancel: Bool) {
     if shouldCancel {
       session?.cancel()
@@ -207,7 +193,7 @@ public final class MyModule: Module {
     session = nil
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func cancelProcessing() {
     guard continuation != nil else { return }
     emit("onError", ["message": "Processing cancelled by user."])
@@ -215,7 +201,7 @@ public final class MyModule: Module {
     resumeContinuationIfNeeded(.failure(PhotogrammetryError.processingCancelled))
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func makeConfiguration(from options: PhotogrammetryOptions) throws -> PhotogrammetrySession.Configuration {
     var configuration = PhotogrammetrySession.Configuration()
     if let ordering = options.sampleOrdering {
@@ -227,19 +213,30 @@ public final class MyModule: Module {
     return configuration
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func makeRequest(from options: PhotogrammetryOptions) throws -> PhotogrammetrySession.Request {
     let outputUrl = URL(fileURLWithPath: options.outputFile)
+    let detail: PhotogrammetrySession.Request.Detail
     if let detailValue = options.detail {
-      let detail = try parseDetail(detailValue)
-      return PhotogrammetrySession.Request.modelFile(url: outputUrl, detail: detail)
+      detail = try parseDetail(detailValue)
     } else {
-      return PhotogrammetrySession.Request.modelFile(url: outputUrl)
+      #if os(iOS)
+      detail = .reduced
+      #else
+      detail = .full
+      #endif
     }
+    return PhotogrammetrySession.Request.modelFile(url: outputUrl, detail: detail)
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func parseDetail(_ value: String) throws -> PhotogrammetrySession.Request.Detail {
+    #if os(iOS)
+    guard value == "reduced" else {
+      throw PhotogrammetryError.invalidDetail(value)
+    }
+    return .reduced
+    #else
     switch value {
       case "preview": return .preview
       case "reduced": return .reduced
@@ -248,9 +245,10 @@ public final class MyModule: Module {
       case "raw": return .raw
       default: throw PhotogrammetryError.invalidDetail(value)
     }
+    #endif
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func parseSampleOrdering(_ value: String) throws -> PhotogrammetrySession.Configuration.SampleOrdering {
     switch value {
       case "unordered": return .unordered
@@ -259,7 +257,7 @@ public final class MyModule: Module {
     }
   }
 
-  @available(macOS 12.0, *)
+  @available(iOS 17.0, macOS 12.0, *)
   private func parseFeatureSensitivity(_ value: String) throws -> PhotogrammetrySession.Configuration.FeatureSensitivity {
     switch value {
       case "normal": return .normal
@@ -273,7 +271,6 @@ public final class MyModule: Module {
       self.sendEvent(name, payload)
     }
   }
-#endif
 }
 
 struct PhotogrammetryOptions: Record {
