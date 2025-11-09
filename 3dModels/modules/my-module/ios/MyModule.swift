@@ -220,26 +220,19 @@ public final class MyModule: Module {
   @available(iOS 17.0, macOS 12.0, *)
   private func makeRequest(from options: PhotogrammetryOptions) throws -> PhotogrammetrySession.Request {
     let outputUrl = URL(fileURLWithPath: options.outputFile)
-    let detail: PhotogrammetrySession.Request.Detail
-    if let detailValue = options.detail {
-      detail = try parseDetail(detailValue)
-    } else {
-      #if os(iOS)
-      detail = .reduced
-      #else
-      detail = .full
-      #endif
-    }
+    let detail = try resolveDetail(preferred: options.detail)
     return PhotogrammetrySession.Request.modelFile(url: outputUrl, detail: detail)
   }
 
   @available(iOS 17.0, macOS 12.0, *)
   private func parseDetail(_ value: String) throws -> PhotogrammetrySession.Request.Detail {
     #if os(iOS)
-    guard value == "reduced" else {
-      throw PhotogrammetryError.invalidDetail(value)
+    switch value {
+      case "reduced", "preview":
+        return .reduced
+      default:
+        throw PhotogrammetryError.invalidDetail(value)
     }
-    return .reduced
     #else
     switch value {
       case "preview": return .preview
@@ -249,6 +242,18 @@ public final class MyModule: Module {
       case "raw": return .raw
       default: throw PhotogrammetryError.invalidDetail(value)
     }
+    #endif
+  }
+
+  @available(iOS 17.0, macOS 12.0, *)
+  private func resolveDetail(preferred detail: String?) throws -> PhotogrammetrySession.Request.Detail {
+    if let detail {
+      return try parseDetail(detail)
+    }
+    #if os(iOS)
+    return .reduced
+    #else
+    return .full
     #endif
   }
 
