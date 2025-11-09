@@ -12,7 +12,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "3dModels",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Allow 3dModels to import images for photogrammetry.",
+        "NSPhotoLibraryAddUsageDescription": "Allow 3dModels to export generated models to your library."
       }
     },
     "android": {

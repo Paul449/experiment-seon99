@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { Image } from 'expo-image';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 import { Platform, StyleSheet, Button, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
@@ -17,8 +20,33 @@ const MyModule = requireNativeModule('MyModule');
 export default function HomeScreen() {
   const [progress, setProgress] = useState<number | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
-  const [datasetPath, setDatasetPath] = useState<string | null>(null);
+  const [datasetUri, setDatasetUri] = useState<string | null>(null);
+  const [datasetFilesystemPath, setDatasetFilesystemPath] = useState<string | null>(null);
+  const [datasetKind, setDatasetKind] = useState<'sample' | 'user' | null>(null);
+  const [imageCount, setImageCount] = useState<number>(0);
   const [modelPath, setModelPath] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const toFileUri = (value: string) => {
+    if (value.startsWith('file://')) {
+      return value;
+    }
+    const trimmed = value.replace(/^\/*/, '');
+    const encoded = trimmed
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join('/');
+    return `file:///${encoded}`;
+  };
+
+  const toFilesystemPath = (value: string) => {
+    if (value.startsWith('file://')) {
+      const decoded = decodeURIComponent(value.replace('file://', ''));
+      return decoded.startsWith('/') ? decoded : `/${decoded}`;
+    }
+    return value;
+  };
 
   useEffect(() => {
     const subscriptions = [
@@ -47,11 +75,31 @@ export default function HomeScreen() {
     await MyModule.setValueAsync('Test Value');
   };
 
-  const ensureDatasetPath = async () => {
+  const refreshImageStats = async (uri: string) => {
     try {
-      const path = await MyModule.prepareBundledDataset('Rock36Images');
-      setDatasetPath(path);
-      return path;
+      const entries = await FileSystem.readDirectoryAsync(toFileUri(uri));
+      const count = entries.filter((entry) => /\.(?:jpe?g|png|heic)$/i.test(entry)).length;
+      setImageCount(count);
+      return count;
+    } catch (error) {
+      console.warn('Unable to read dataset contents', error);
+      setImageCount(0);
+      return 0;
+    }
+  };
+
+  const prepareSampleDataset = async (): Promise<{ uri: string; fsPath: string }> => {
+    try {
+      const fsPath = await MyModule.prepareBundledDataset('Rock36Images');
+      const uri = toFileUri(fsPath);
+      setDatasetFilesystemPath(fsPath);
+      setDatasetUri(uri);
+      setDatasetKind('sample');
+      setModelPath(null);
+      setProgress(null);
+      const count = await refreshImageStats(uri);
+      setLogs((current) => [`Sample dataset ready with ${count} image${count === 1 ? '' : 's'}.`, ...current].slice(0, 5));
+      return { uri, fsPath };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       alert(`Failed to prepare dataset: ${message}`);
@@ -59,12 +107,126 @@ export default function HomeScreen() {
     }
   };
 
+  const handleUseSampleDataset = async () => {
+    await prepareSampleDataset();
+  };
+
+  const handlePickImages = async () => {
+  const pickerPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!pickerPermission.granted) {
+      alert('Permission to access the photo library is required.');
+      return;
+    }
+
+    const mediaPermission = await MediaLibrary.requestPermissionsAsync();
+    if (!mediaPermission.granted) {
+      alert('Permission to read photo assets is required.');
+      return;
+    }
+
+    const selection = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: true,
+      orderedSelection: true,
+      selectionLimit: 0,
+    });
+
+    if (selection.canceled || !selection.assets?.length) {
+      return;
+    }
+
+    const documentDirectory = FileSystem.documentDirectory ?? null;
+    if (!documentDirectory) {
+      alert('Document directory is not available on this device.');
+      return;
+    }
+
+  const datasetRootUri = `${documentDirectory}UserPhotogrammetryDataset`;
+  await FileSystem.deleteAsync(datasetRootUri, { idempotent: true });
+  await FileSystem.makeDirectoryAsync(datasetRootUri, { intermediates: true });
+
+    let copied = 0;
+
+    for (const asset of selection.assets) {
+      if (!asset.uri) {
+        continue;
+      }
+
+      let sourceUri = asset.uri;
+
+      if (sourceUri.startsWith('ph://')) {
+        if (asset.assetId) {
+          const info = await MediaLibrary.getAssetInfoAsync(asset.assetId);
+          if (info.localUri) {
+            sourceUri = info.localUri;
+          } else if (info.uri) {
+            const tempFileName = asset.fileName ?? `asset-${Date.now()}-${copied}`;
+            const cacheDirectory = FileSystem.cacheDirectory ?? documentDirectory;
+            const tempTarget = `${cacheDirectory}${tempFileName}`;
+            const download = await FileSystem.downloadAsync(info.uri, tempTarget);
+            sourceUri = download.uri;
+          } else {
+            continue;
+          }
+        } else {
+          continue;
+        }
+      }
+
+      const extension = asset.fileName?.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const safeExtension = /^[a-z0-9]+$/.test(extension) ? extension : 'jpg';
+      const targetPath = `${datasetRootUri}/image-${String(copied).padStart(3, '0')}.${safeExtension}`;
+
+      try {
+        await FileSystem.copyAsync({ from: sourceUri, to: targetPath });
+        copied += 1;
+      } catch (error) {
+        console.warn('Failed to copy asset', error);
+      }
+    }
+
+    if (copied === 0) {
+      await FileSystem.deleteAsync(datasetRootUri, { idempotent: true });
+      alert('Could not copy the selected images. Please try again.');
+      return;
+    }
+
+    const fsPath = toFilesystemPath(datasetRootUri);
+    setDatasetUri(datasetRootUri);
+    setDatasetFilesystemPath(fsPath);
+    setDatasetKind('user');
+    setModelPath(null);
+    setProgress(null);
+
+    await refreshImageStats(datasetRootUri);
+
+    setLogs((current) => [`User dataset prepared with ${copied} image${copied === 1 ? '' : 's'}.`, ...current].slice(0, 5));
+  };
+
   const handlePhotogrammetry = async () => {
+    setIsProcessing(true);
     try {
-      const inputFolder = datasetPath ?? (await ensureDatasetPath());
-      const outputFile = `${inputFolder}/output.usdz`;
+      const dataset = datasetFilesystemPath && datasetUri
+        ? { fsPath: datasetFilesystemPath, uri: datasetUri }
+        : await prepareSampleDataset();
+      if (!dataset) {
+        return;
+      }
+
+      const { fsPath, uri } = dataset;
+      const count = await refreshImageStats(uri);
+      if (count === 0) {
+        alert('Dataset is empty. Add images before processing.');
+        return;
+      }
+
+      setModelPath(null);
+      setProgress(0);
+      setLogs((current) => [`Processing dataset with ${count} image${count === 1 ? '' : 's'}.`, ...current].slice(0, 5));
+
+      const outputFile = `${fsPath}/output.usdz`;
       const result = await MyModule.processPhotogrammetry({
-        inputFolder,
+        inputFolder: fsPath,
         outputFile,
         detail: 'preview',
       });
@@ -74,11 +236,15 @@ export default function HomeScreen() {
       const message = error instanceof Error ? error.message : String(error);
       console.warn('Photogrammetry failed', error);
       alert(`Photogrammetry failed: ${message}`);
+      setProgress(null);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   const handlePhotogrammetryCancel = () => {
     MyModule.cancelPhotogrammetry();
+    setIsProcessing(false);
   };
 
   return (
@@ -102,8 +268,20 @@ export default function HomeScreen() {
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Photogrammetry</ThemedText>
-        <Button title="Start Photogrammetry" onPress={handlePhotogrammetry} />
-        <Button title="Cancel Photogrammetry" onPress={handlePhotogrammetryCancel} />
+        <View style={styles.buttonRow}>
+          <Button title="Select Images" onPress={handlePickImages} />
+          <Button title="Use Sample Dataset" onPress={handleUseSampleDataset} />
+        </View>
+        <Button
+          title={isProcessing ? 'Processing...' : 'Start Photogrammetry'}
+          onPress={handlePhotogrammetry}
+          disabled={isProcessing}
+        />
+        <Button
+          title="Cancel Photogrammetry"
+          onPress={handlePhotogrammetryCancel}
+          disabled={!isProcessing}
+        />
         {progress !== null && (
           <ThemedText>
             Progress: {(progress * 100).toFixed(1)}%
@@ -118,10 +296,16 @@ export default function HomeScreen() {
             ))}
           </ThemedView>
         )}
-        {datasetPath && (
-          <ThemedText numberOfLines={2} style={styles.datasetPath}>
-            Dataset copied to: {datasetPath}
-          </ThemedText>
+        {(datasetUri || datasetFilesystemPath) && (
+          <ThemedView style={styles.datasetInfo}>
+            <ThemedText numberOfLines={2} style={styles.datasetPath}>
+              Dataset location: {datasetFilesystemPath ?? datasetUri}
+            </ThemedText>
+            <ThemedText style={styles.infoText}>
+              Source: {datasetKind === 'user' ? 'User selection' : 'Sample bundle'}
+            </ThemedText>
+            <ThemedText style={styles.infoText}>Images detected: {imageCount}</ThemedText>
+          </ThemedView>
         )}
         {modelPath && (
           <View style={styles.viewerContainer}>
@@ -208,6 +392,11 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 8,
   },
+  buttonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   reactLogo: {
     height: 178,
     width: 290,
@@ -223,6 +412,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   datasetPath: {
+    fontSize: 12,
+  },
+  datasetInfo: {
+    gap: 4,
+  },
+  infoText: {
     fontSize: 12,
   },
   viewerContainer: {

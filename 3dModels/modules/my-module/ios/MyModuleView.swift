@@ -23,6 +23,7 @@ final class MyModuleView: ExpoView {
   func updateModel(atPath path: String?) {
     guard let path else {
       sceneView.scene = nil
+      onLoad(["url": ""])
       return
     }
 
