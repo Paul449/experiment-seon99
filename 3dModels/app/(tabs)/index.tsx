@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { Image } from 'expo-image';
-import { Platform, StyleSheet, Button } from 'react-native';
+import { Platform, StyleSheet, Button, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -10,12 +10,15 @@ import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 import { requireNativeModule } from 'expo-modules-core';
 
+import MyModuleView from '@/modules/my-module/src/MyModuleView';
+
 const MyModule = requireNativeModule('MyModule');
 
 export default function HomeScreen() {
   const [progress, setProgress] = useState<number | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [datasetPath, setDatasetPath] = useState<string | null>(null);
+  const [modelPath, setModelPath] = useState<string | null>(null);
 
   useEffect(() => {
     const subscriptions = [
@@ -65,6 +68,7 @@ export default function HomeScreen() {
         outputFile,
         detail: 'preview',
       });
+      setModelPath(result);
       alert(`Model created at: ${result}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -118,6 +122,23 @@ export default function HomeScreen() {
           <ThemedText numberOfLines={2} style={styles.datasetPath}>
             Dataset copied to: {datasetPath}
           </ThemedText>
+        )}
+        {modelPath && (
+          <View style={styles.viewerContainer}>
+            <ThemedText type="defaultSemiBold">Model Preview</ThemedText>
+            <MyModuleView
+              style={styles.viewer}
+              modelPath={modelPath}
+              onLoad={(event) => {
+                const { url, error } = event.nativeEvent;
+                if (error) {
+                  alert(`Preview error: ${error}`);
+                } else if (url) {
+                  setLogs((current) => [`Preview loaded from ${url}`, ...current].slice(0, 5));
+                }
+              }}
+            />
+          </View>
         )}
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
@@ -203,5 +224,15 @@ const styles = StyleSheet.create({
   },
   datasetPath: {
     fontSize: 12,
+  },
+  viewerContainer: {
+    gap: 8,
+    height: 260,
+  },
+  viewer: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#111',
   },
 });

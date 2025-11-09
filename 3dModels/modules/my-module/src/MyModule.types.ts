@@ -1,7 +1,8 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 
 export type OnLoadEventPayload = {
-  url: string;
+  url?: string;
+  error?: string;
 };
 
 export type ChangeEventPayload = {
@@ -37,7 +38,7 @@ export type MyModuleEvents = {
 };
 
 export type MyModuleViewProps = {
-  url: string;
-  onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;
+  modelPath?: string;
+  onLoad?: (event: { nativeEvent: OnLoadEventPayload }) => void;
   style?: StyleProp<ViewStyle>;
 };

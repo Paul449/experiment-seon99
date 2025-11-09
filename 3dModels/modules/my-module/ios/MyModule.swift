@@ -57,10 +57,8 @@ public final class MyModule: Module {
     }
 
     View(MyModuleView.self) {
-      Prop("url") { (view: MyModuleView, url: URL) in
-        if view.webView.url != url {
-          view.webView.load(URLRequest(url: url))
-        }
+      Prop("modelPath") { (view: MyModuleView, path: String?) in
+        view.updateModel(atPath: path)
       }
 
       Events("onLoad")

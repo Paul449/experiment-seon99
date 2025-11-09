@@ -1,38 +1,55 @@
 import ExpoModulesCore
-import WebKit
+import SceneKit
 
-// This view will be used as a native component. Make sure to inherit from `ExpoView`
-// to apply the proper styling (e.g. border radius and shadows).
-class MyModuleView: ExpoView {
-  let webView = WKWebView()
+final class MyModuleView: ExpoView {
+  private let sceneView = SCNView()
   let onLoad = EventDispatcher()
-  var delegate: WebViewDelegate?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     clipsToBounds = true
-    delegate = WebViewDelegate { url in
-      self.onLoad(["url": url])
-    }
-    webView.navigationDelegate = delegate
-    addSubview(webView)
+    sceneView.backgroundColor = .clear
+    sceneView.autoenablesDefaultLighting = true
+    sceneView.allowsCameraControl = true
+    sceneView.defaultCameraController.interactionMode = .orbitTurntable
+    addSubview(sceneView)
   }
 
   override func layoutSubviews() {
-    webView.frame = bounds
-  }
-}
-
-class WebViewDelegate: NSObject, WKNavigationDelegate {
-  let onUrlChange: (String) -> Void
-
-  init(onUrlChange: @escaping (String) -> Void) {
-    self.onUrlChange = onUrlChange
+    super.layoutSubviews()
+    sceneView.frame = bounds
   }
 
-  func webView(_ webView: WKWebView, didFinish navigation: WKNavigation) {
-    if let url = webView.url {
-      onUrlChange(url.absoluteString)
+  func updateModel(atPath path: String?) {
+    guard let path else {
+      sceneView.scene = nil
+      return
+    }
+
+    let url: URL
+    if path.hasPrefix("file://") || path.hasPrefix("http") {
+      guard let resolvedURL = URL(string: path) else {
+        onLoad(["error": "Invalid URL: \(path)"])
+        return
+      }
+      url = resolvedURL
+    } else {
+      url = URL(fileURLWithPath: path)
+    }
+
+    DispatchQueue.global(qos: .userInitiated).async {
+      do {
+        let scene = try SCNScene(url: url, options: nil)
+        DispatchQueue.main.async {
+          self.sceneView.scene = scene
+          self.onLoad(["url": url.absoluteString])
+        }
+      } catch {
+        DispatchQueue.main.async {
+          self.sceneView.scene = nil
+          self.onLoad(["error": error.localizedDescription])
+        }
+      }
     }
   }
 }
