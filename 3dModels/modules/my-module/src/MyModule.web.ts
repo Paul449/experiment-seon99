@@ -18,6 +18,12 @@ class MyModule extends NativeModule<MyModuleEvents> {
     return 'Hello world! 👋';
   }
 
+  async prepareBundledDataset(dataset: string): Promise<string> {
+    const message = `Bundled dataset "${dataset}" is not available on web.`;
+    this.emit('onError', { message } satisfies ErrorEventPayload);
+    throw new Error(message);
+  }
+
   async processPhotogrammetry(_: PhotogrammetryOptions): Promise<string> {
     const message = 'Photogrammetry is not supported on web.';
     this.emit('onError', { message } satisfies ErrorEventPayload);

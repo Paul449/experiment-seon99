@@ -6,6 +6,7 @@ declare class MyModule extends NativeModule<MyModuleEvents> {
   PI: number;
   hello(): string;
   setValueAsync(value: string): Promise<void>;
+  prepareBundledDataset(dataset: string): Promise<string>;
   processPhotogrammetry(options: PhotogrammetryOptions): Promise<string>;
   cancelPhotogrammetry(): void;
 }

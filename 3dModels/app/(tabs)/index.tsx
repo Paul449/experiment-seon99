@@ -15,6 +15,7 @@ const MyModule = requireNativeModule('MyModule');
 export default function HomeScreen() {
   const [progress, setProgress] = useState<number | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
+  const [datasetPath, setDatasetPath] = useState<string | null>(null);
 
   useEffect(() => {
     const subscriptions = [
@@ -43,11 +44,25 @@ export default function HomeScreen() {
     await MyModule.setValueAsync('Test Value');
   };
 
+  const ensureDatasetPath = async () => {
+    try {
+      const path = await MyModule.prepareBundledDataset('Rock36Images');
+      setDatasetPath(path);
+      return path;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      alert(`Failed to prepare dataset: ${message}`);
+      throw error;
+    }
+  };
+
   const handlePhotogrammetry = async () => {
     try {
+      const inputFolder = datasetPath ?? (await ensureDatasetPath());
+      const outputFile = `${inputFolder}/output.usdz`;
       const result = await MyModule.processPhotogrammetry({
-        inputFolder: '/path/to/images',
-        outputFile: '/tmp/object.usdz',
+        inputFolder,
+        outputFile,
         detail: 'preview',
       });
       alert(`Model created at: ${result}`);
@@ -98,6 +113,11 @@ export default function HomeScreen() {
               </ThemedText>
             ))}
           </ThemedView>
+        )}
+        {datasetPath && (
+          <ThemedText numberOfLines={2} style={styles.datasetPath}>
+            Dataset copied to: {datasetPath}
+          </ThemedText>
         )}
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
@@ -179,6 +199,9 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   logItem: {
+    fontSize: 12,
+  },
+  datasetPath: {
     fontSize: 12,
   },
 });

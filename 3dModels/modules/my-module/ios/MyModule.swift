@@ -38,6 +38,10 @@ public final class MyModule: Module {
       ])
     }
 
+    AsyncFunction("prepareBundledDataset") { (dataset: String) -> String in
+      try self.prepareBundledDataset(named: dataset)
+    }
+
     AsyncFunction("processPhotogrammetry") { (options: PhotogrammetryOptions) -> String in
       if #available(iOS 17.0, macOS 12.0, *) {
         return try await self.processPhotogrammetry(options: options)
@@ -271,6 +275,45 @@ public final class MyModule: Module {
       self.sendEvent(name, payload)
     }
   }
+
+  private func prepareBundledDataset(named dataset: String) throws -> String {
+    let fileManager = FileManager.default
+    let documentsDirectory = try fileManager.url(for: .documentDirectory,
+                                                 in: .userDomainMask,
+                                                 appropriateFor: nil,
+                                                 create: true)
+    let destinationURL = documentsDirectory.appendingPathComponent(dataset, isDirectory: true)
+
+    if fileManager.fileExists(atPath: destinationURL.path) {
+      try fileManager.removeItem(at: destinationURL)
+    }
+
+    guard let sourceURL = findDatasetURL(named: dataset) else {
+      throw PhotogrammetryError.datasetNotFound(dataset)
+    }
+
+    do {
+      try fileManager.copyItem(at: sourceURL, to: destinationURL)
+    } catch {
+      throw PhotogrammetryError.filesystemFailure(error.localizedDescription)
+    }
+
+    return destinationURL.path
+  }
+
+  private func findDatasetURL(named dataset: String) -> URL? {
+    let bundle = Bundle(for: MyModuleView.self)
+    if let directMatch = bundle.url(forResource: dataset, withExtension: nil) {
+      return directMatch
+    }
+    if let dataMatch = bundle.url(forResource: dataset, withExtension: nil, subdirectory: "Data") {
+      return dataMatch
+    }
+    if let urls = bundle.urls(forResourcesWithExtension: nil, subdirectory: "Data") {
+      return urls.first { $0.lastPathComponent == dataset }
+    }
+    return nil
+  }
 }
 
 struct PhotogrammetryOptions: Record {
@@ -289,6 +332,8 @@ enum PhotogrammetryError: Error, LocalizedError {
   case processingInProgress
   case processingCancelled
   case unexpectedResult
+  case datasetNotFound(String)
+  case filesystemFailure(String)
 
   var errorDescription: String? {
     switch self {
@@ -306,6 +351,10 @@ enum PhotogrammetryError: Error, LocalizedError {
         return "The photogrammetry session was cancelled."
       case .unexpectedResult:
         return "The photogrammetry session produced an unexpected result."
+      case .datasetNotFound(let name):
+        return "Bundled dataset \(name) was not found."
+      case .filesystemFailure(let message):
+        return "Unable to prepare dataset: \(message)"
     }
   }
 }
