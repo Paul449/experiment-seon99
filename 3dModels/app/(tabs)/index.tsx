@@ -422,12 +422,12 @@ const styles = StyleSheet.create({
   },
   viewerContainer: {
     gap: 8,
-    height: 260,
+    height: 700,
   },
   viewer: {
     flex: 1,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#111',
+    backgroundColor: 'white',
   },
 });
