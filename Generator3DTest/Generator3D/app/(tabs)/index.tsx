@@ -5,26 +5,20 @@ import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-
-export default function HomeScreen() {
-  
-}
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+// Axios library for making HTTP client requests
+import axios from "axios";
+// Create an instance of Axios with default headers
+const apiClient = axios.create({
+  baseURL: 'https://api.minimax.io/v1/video_generation',
+  headers: {
+    'Authorization': `Bearer ${process.env.MY_API_KEY}`,
+    'Content-Type': 'application/json',
   },
 });
+
+export default function HomeScreen() {
+
+
+}
+
+
