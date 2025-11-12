@@ -1,0 +1,5 @@
+ PROMPT 1: a realistic photo of me with a clean razor fade haircut, natural lighting, casual look, same outfit and background, 
+ subtle enhancement, looks like a real photo not edited, natural hair texture, realistic shadows and details. Do not modify my face.
+
+ PROMPT 2: A natural photo of me with a fresh razor fade haircut, casual style, same facial expression, 
+ realistic lighting, natural tones, no retouch, smooth skin texture, realistic photo effect
