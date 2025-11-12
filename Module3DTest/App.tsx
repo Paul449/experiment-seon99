@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
-import { MyModuleView } from './modules/my-module';
 import { requireNativeModule } from 'expo-modules-core';
 import * as ImagePicker from 'expo-image-picker';
 import Model3DViewer from './components/Model3DViewer';
