@@ -1,10 +1,11 @@
-import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import { Platform, StyleSheet } from 'react-native';
-
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+//import hooks
+import { useEffect, useState } from 'react';
 // Axios library for making HTTP client requests
 import axios from "axios";
 // Create an instance of Axios with default headers
@@ -17,7 +18,7 @@ const apiClient = axios.create({
 });
 
 export default function HomeScreen() {
-
+const [photo, setPhoto] = useState([]);
 
 }
 
