@@ -15,3 +15,5 @@
     "expo-env.d.ts"
   ]
 }
+// this file establishes the base typescript configuration for the project
+// it extends the default expo typescript configuration
