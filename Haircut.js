@@ -37,21 +37,18 @@ async function GenerateNewHaircut() {
       }
     });
 
+//step 3: check if response exists
+    if (!response) {
+      console.log("Response is null or undefined.");
+      return;
+    }
+
     // Step 3: Save the generated image
     let imageCount = 0;
     
-    if (response.image) {
-      const imageData = response.image.imageBytes;
-      const buffer = Buffer.from(imageData, "base64");
-      fs.writeFileSync(`HaircutImage${imageCount}.png`, buffer);
-      console.log(`✅ Image ${imageCount} saved.`);
-      imageCount++;
-    }
-
-    // Check if there are multiple images in the response
-    if (response.candidates && response.candidates[0]) {
+    if (response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts) {
       for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
+        if (part.inlineData && part.inlineData.data) {
           const imageData = part.inlineData.data;
           const buffer = Buffer.from(imageData, "base64");
           fs.writeFileSync(`HaircutImage${imageCount}.png`, buffer);
@@ -59,6 +56,16 @@ async function GenerateNewHaircut() {
           imageCount++;
         }
       }
+    } else if (response.image && response.image.imageBytes) {
+      // Fallback to direct image property
+      const imageData = response.image.imageBytes;
+      const buffer = Buffer.from(imageData, "base64");
+      fs.writeFileSync(`HaircutImage${imageCount}.png`, buffer);
+      console.log(`✅ Image ${imageCount} saved.`);
+      imageCount++;
+    } else {
+      console.log("⚠️ No image data found in response");
+      console.log("Response structure:", JSON.stringify(response, null, 2));
     }
 
     console.log(`\n🎉 Done! Generated ${imageCount} image(s).`);
