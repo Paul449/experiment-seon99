@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import fs from "fs";
 
 dotenv.config();
-
+// declaring templatev
 const AI = new GoogleGenAI({ apiKey: process.env.MY_API_KEY });
 //
 async function GenerateNewHaircut() {
@@ -13,7 +13,7 @@ async function GenerateNewHaircut() {
     
     // Step 1: Upload your photo
     const myPhoto = await AI.files.upload({
-      file: "./NormalPhotos/front-side.jpg",
+      file: "./NormalPhotos/left-side.jpg",
       config: { mimeType: "image/jpeg" },
     });
 
@@ -65,12 +65,12 @@ async function GenerateNewHaircut() {
       imageCount++;
     } else {
       console.log("⚠️ No image data found in response");
-      console.log("Response structure:", JSON.stringify(response, null, 2));
+      console.log("Response structure:", response ? Object.keys(response) : "No response");
     }
 
     console.log(`\n🎉 Done! Generated ${imageCount} image(s).`);
 
-    // Step 4: Clean up uploaded file
+    // Step 4: Clean up uploaded file from google servers
     await AI.files.delete(myPhoto.name);
     console.log("🗑️  Temporary file deleted.");
 
