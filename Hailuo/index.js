@@ -1,3 +1,4 @@
+
 //Minimax Hailuo API url
 const url = "https://api.minimax.io/v1/video_generation";
 //options
