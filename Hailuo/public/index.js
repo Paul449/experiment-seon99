@@ -125,7 +125,8 @@ function removePhoto(index) {
 // Generate 360° Video
 createModelBtn.addEventListener('click', async () => {
     if (uploadedPhotos.length < 2) {
-        alert('Please upload at least 2 photos for 360° video generation!');
+        statusDiv.textContent = 'Please upload at least 2 photos';
+        statusDiv.style.color = '#ff4444';
         return;
     }
     
@@ -143,18 +144,12 @@ createModelBtn.addEventListener('click', async () => {
         const uploadResponse1 = await fetch('/upload', {
             method: 'POST',
             body: formData1
-        }).catch(err => {
-            throw new Error('Network error uploading first image: ' + err.message);
         });
-        
-        if (!uploadResponse1.ok) {
-            throw new Error(`Server error: ${uploadResponse1.status} ${uploadResponse1.statusText}`);
-        }
         
         const uploadData1 = await uploadResponse1.json();
         
         if (!uploadData1.success) {
-            throw new Error('Failed to upload first image: ' + (uploadData1.error || 'Unknown error'));
+            throw new Error(uploadData1.error || 'Upload failed');
         }
         
         // Upload second image
@@ -165,24 +160,18 @@ createModelBtn.addEventListener('click', async () => {
         const uploadResponse2 = await fetch('/upload', {
             method: 'POST',
             body: formData2
-        }).catch(err => {
-            throw new Error('Network error uploading second image: ' + err.message);
         });
-        
-        if (!uploadResponse2.ok) {
-            throw new Error(`Server error: ${uploadResponse2.status} ${uploadResponse2.statusText}`);
-        }
         
         const uploadData2 = await uploadResponse2.json();
         
         if (!uploadData2.success) {
-            throw new Error('Failed to upload second image: ' + (uploadData2.error || 'Unknown error'));
+            throw new Error(uploadData2.error || 'Upload failed');
         }
         
         console.log('Upload successful:', uploadData1, uploadData2);
         statusDiv.textContent = 'Images uploaded. Converting to base64...';
         
-        // Convert images to base64 for API (since localhost URLs won't work for external API)
+        // Convert images to base64 for API
         const base64Image1 = await imageToBase64(uploadedPhotos[0].file);
         
         statusDiv.textContent = 'Requesting 360° video generation...';
@@ -191,7 +180,7 @@ createModelBtn.addEventListener('click', async () => {
         const videoPayload = {
             model: "video-01",
             prompt: "Generate a smooth 360-degree rotation view of the person's head, showing all angles continuously from front to back and around, creating a complete orbital camera movement around the subject",
-            first_frame_image: base64Image1,
+            first_frame_image: base64Image1
         };
         
         console.log('Sending video generation request:', videoPayload);
@@ -202,8 +191,6 @@ createModelBtn.addEventListener('click', async () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(videoPayload)
-        }).catch(err => {
-            throw new Error('Network error during video generation: ' + err.message);
         });
         
         if (!videoResponse.ok) {
@@ -213,20 +200,11 @@ createModelBtn.addEventListener('click', async () => {
         const videoData = await videoResponse.json();
         console.log('Video generation response:', videoData);
         
-        if (videoData.error) {
-            throw new Error(videoData.error);
-        }
-        
-        // Poll for video completion
-        if (videoData.task_id) {
-            statusDiv.textContent = 'Video generation started. Task ID: ' + videoData.task_id;
+        if (videoData.base_resp && videoData.base_resp.status_code === 0 && videoData.task_id) {
+            // Start polling for video status
             pollVideoStatus(videoData.task_id);
-        } else if (videoData.video_url) {
-            displayVideo(videoData.video_url);
         } else {
-            console.log('API Response:', videoData);
-            statusDiv.textContent = 'Video request submitted. Check console for details.';
-            statusDiv.style.color = '#ffaa00';
+            throw new Error(videoData.base_resp?.status_msg || 'Video generation failed');
         }
         
     } catch (error) {
@@ -239,16 +217,51 @@ createModelBtn.addEventListener('click', async () => {
     }
 });
 
+
 // Poll for video completion (if API returns task_id)
 async function pollVideoStatus(taskId) {
-    // Note: You'll need to implement a status endpoint in your server
-    // This is a placeholder for the polling logic
-    statusDiv.textContent = 'Polling for video status... (Task ID: ' + taskId + ')';
-    
-    // For now, just log the task ID
-    console.log('Video generation task ID:', taskId);
-    statusDiv.textContent = 'Video generation in progress. Task ID: ' + taskId + '. Check Minimax dashboard for status.';
-    statusDiv.style.color = '#ffaa00';
+    const maxAttempts = 60;
+    let attempts = 0;
+
+    const poll = async () => {
+        try {
+            attempts++;
+            statusDiv.textContent = `Generating video... (${attempts}/${maxAttempts})`;
+
+            const response = await fetch('/query-video', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ task_id: taskId })
+            });
+
+            const data = await response.json();
+            console.log('Poll response:', data);
+
+            if (data.status === 'Success' && data.file_id) {
+                displayVideo(data.file_id);
+                return;
+            } else if (data.status === 'Failed') {
+                statusDiv.textContent = 'Video generation failed';
+                statusDiv.style.color = '#ff4444';
+                return;
+            } else {
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, 5000);
+                } else {
+                    statusDiv.textContent = 'Timeout. Task ID: ' + taskId;
+                    statusDiv.style.color = '#ffaa00';
+                }
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+            statusDiv.textContent = 'Error: ' + error.message;
+            statusDiv.style.color = '#ff4444';
+        }
+    };
+
+    poll();
 }
 
 // Display generated video
