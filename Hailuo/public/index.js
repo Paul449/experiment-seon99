@@ -14,6 +14,52 @@ const videoContainer = document.getElementById('videoContainer');
 let uploadedPhotos = [];
 let videoUrl = null;
 
+// Convert file to base64
+async function imageToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                // Resize image to reduce base64 size
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Max dimensions to keep file size reasonable
+                const maxWidth = 1024;
+                const maxHeight = 1024;
+                
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = (width * maxHeight) / height;
+                        height = maxHeight;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                // Convert to base64 with reduced quality
+                const resizedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                resolve(resizedBase64);
+            };
+            img.onerror = reject;
+            img.src = reader.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
 // Handle file input
 fileInput.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
@@ -90,42 +136,65 @@ createModelBtn.addEventListener('click', async () => {
     
     try {
         // Upload first image
+        statusDiv.textContent = 'Uploading first image...';
         const formData1 = new FormData();
         formData1.append('image', uploadedPhotos[0].file);
         
         const uploadResponse1 = await fetch('/upload', {
             method: 'POST',
             body: formData1
+        }).catch(err => {
+            throw new Error('Network error uploading first image: ' + err.message);
         });
+        
+        if (!uploadResponse1.ok) {
+            throw new Error(`Server error: ${uploadResponse1.status} ${uploadResponse1.statusText}`);
+        }
+        
         const uploadData1 = await uploadResponse1.json();
         
         if (!uploadData1.success) {
-            throw new Error('Failed to upload first image');
+            throw new Error('Failed to upload first image: ' + (uploadData1.error || 'Unknown error'));
         }
         
         // Upload second image
+        statusDiv.textContent = 'Uploading second image...';
         const formData2 = new FormData();
         formData2.append('image', uploadedPhotos[1].file);
         
         const uploadResponse2 = await fetch('/upload', {
             method: 'POST',
             body: formData2
+        }).catch(err => {
+            throw new Error('Network error uploading second image: ' + err.message);
         });
+        
+        if (!uploadResponse2.ok) {
+            throw new Error(`Server error: ${uploadResponse2.status} ${uploadResponse2.statusText}`);
+        }
+        
         const uploadData2 = await uploadResponse2.json();
         
         if (!uploadData2.success) {
-            throw new Error('Failed to upload second image');
+            throw new Error('Failed to upload second image: ' + (uploadData2.error || 'Unknown error'));
         }
         
-        statusDiv.textContent = 'Images uploaded. Requesting 360° video generation...';
+        console.log('Upload successful:', uploadData1, uploadData2);
+        statusDiv.textContent = 'Images uploaded. Converting to base64...';
+        
+        // Convert images to base64 for API (since localhost URLs won't work for external API)
+        const base64Image1 = await imageToBase64(uploadedPhotos[0].file);
+        
+        statusDiv.textContent = 'Requesting 360° video generation...';
         
         // Generate video with Minimax API
         const videoPayload = {
             model: "video-01",
             prompt: "Generate a smooth 360-degree rotation view of the person's head, showing all angles continuously from front to back and around, creating a complete orbital camera movement around the subject",
-            first_frame_image: `http://localhost:3000${uploadData1.path}`,
-            last_frame_image: `http://localhost:3000${uploadData2.path}`
+            first_frame_image: base64Image1,
         };
+        
+        console.log('Sending video generation request:', videoPayload);
         
         const videoResponse = await fetch('/generate-video', {
             method: 'POST',
@@ -133,9 +202,16 @@ createModelBtn.addEventListener('click', async () => {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(videoPayload)
+        }).catch(err => {
+            throw new Error('Network error during video generation: ' + err.message);
         });
         
+        if (!videoResponse.ok) {
+            throw new Error(`Server error: ${videoResponse.status} ${videoResponse.statusText}`);
+        }
+        
         const videoData = await videoResponse.json();
+        console.log('Video generation response:', videoData);
         
         if (videoData.error) {
             throw new Error(videoData.error);
