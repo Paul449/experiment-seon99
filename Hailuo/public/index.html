@@ -115,25 +115,26 @@
         </style>
     </head>
     <body>
-        <h1>3D Model Rotation Display</h1>
+        <h1>360° Head Video Generator</h1>
         
         <div class="upload-container">
-            <h2>Upload Photos for 3D Model</h2>
+            <h2>Upload 2 Photos of Your Head (Different Angles)</h2>
+            <p style="color: #aaa; font-size: 14px; margin-top: 0;">
+                Upload a front view and a side/back view for best 360° results
+            </p>
             <input type="file" id="fileInput" multiple accept="image/*">
             <div id="photoPreview" class="photo-preview"></div>
             <div class="controls" style="margin-top: 15px;">
-                <button id="createModelBtn">Create 3D Model</button>
+                <button id="createModelBtn">Generate 360° Video</button>
             </div>
+            <div id="status" style="margin-top: 15px; padding: 10px; background-color: #333; border-radius: 4px; text-align: center; font-size: 14px;"></div>
         </div>
 
         <div id="canvas-container">
             <canvas id="canvas" width="800" height="600"></canvas>
         </div>
-        <div class="controls">
-            <button id="startBtn">Start Rotation</button>
-            <button id="stopBtn">Stop Rotation</button>
-            <button id="resetBtn">Reset</button>
-        </div>
+        
+        <div id="videoContainer" style="max-width: 800px; margin: 20px auto; text-align: center;"></div>
         <script src="index.js" type="module"></script>
     </body>
 </html>
