@@ -17,6 +17,9 @@ app.use(fileUpload());
 // Serve static frontend files
 app.use(express.static("public"));
 
+// Serve uploaded files
+app.use("/uploads", express.static("uploads"));
+
 // Upload endpoint
 app.post("/upload", async (req, res) => {
     try {
