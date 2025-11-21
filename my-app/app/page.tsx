@@ -49,7 +49,7 @@ export default function Image3DTilt() {
           rotateY,
           transformStyle: "preserve-3d",
         }}
-        className="relative w-[600px] h-[400px] rounded-2xl overflow-hidden cursor-pointer"
+        className="relative w-[800px] h-[600px] rounded-2xl overflow-hidden cursor-pointer"
       >
         {/* Image */}
         <motion.div

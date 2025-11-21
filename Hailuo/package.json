@@ -3,12 +3,19 @@
   "version": "1.0.0",
   "description": "3d hailuo test",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "fs": "^0.0.1-security",
+    "image-dimensions": "^2.5.0",
+    "image-size": "^2.0.2",
+    "multer": "^2.0.2",
+    "path": "^0.12.7"
   }
 }

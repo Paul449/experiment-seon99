@@ -13,7 +13,7 @@ async function GenerateNewHaircut() {
     
     // Step 1: Upload your photo
     const myPhoto = await AI.files.upload({
-      file: "./NormalPhotos/left-side.jpg",
+      file: "./NormalPhotos/front-side.jpg",
       config: { mimeType: "image/jpeg" },
     });
 
