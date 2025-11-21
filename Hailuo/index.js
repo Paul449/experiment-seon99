@@ -1,94 +1,57 @@
-
-import imageSize from "image-size"
-import path from "path";
+import express from "express";
+import multer from "multer";
+import dotenv from "dotenv";
 import fs from "fs";
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
+import fetch from "node-fetch";
+import CheckImageRequierements  from "./utils/validateImage.js";
+
 dotenv.config();
-// Get __dirname in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// image requirements
-const IMG ={
-    format: ["jpeg","png","jpg","webp"],
-    size: 20 * 1024 * 1024, //20MB
-    Dimensions:{
-        ShortSide:300,
-        RatioMin:2/5,
-        RatioMax:5/2,
-    }
 
-}
+const app = express();
+const upload = multer({ dest: "uploads/" });
 
-//setup image requirements
-//check if image meets requirements(start & end)
-function CheckImageRequierements(imagePath){
-   // 1. Check extension
-    const ext = imagePath.split('.').pop().toLowerCase();
-    if (!IMG.format.includes(ext)) {
-        throw new Error(`Invalid image format. Expected: ${IMG.format.join(', ')}`);
-    }
+app.use(express.static("public")); // serves index.html automatically
 
-    // 2. Check file size
-    const stats = fs.statSync(imagePath);
-    if (stats.size > IMG.size) {
-        throw new Error(`Image too large. Max size is ${IMG.size / (1024*1024)}MB`);
-    }
+const MINIMAX_URL = "https://api.minimax.chat/v2/video/generate";
 
-    // 3. Read dimensions
-    const buffer = fs.readFileSync(imagePath);
-    const { width, height } = imageSize(buffer);
-    if (!width || !height) {
-        throw new Error("Could not read image dimensions.");
-    }
+// Upload image + validate + call MiniMax
+app.post("/api/generate-video", upload.single("photo"), async (req, res) => {
+  try {
+    const imagePath = req.file.path;
 
-    // 4. Short side check
-    const shortSide = Math.min(width, height);
-    if (shortSide < IMG.Dimensions.ShortSide) {
-        console.log(`Width: ${width}, Height: ${height}`);
-        throw new Error(`Short side too small. Minimum is ${IMG.Dimensions.ShortSide}px`);
-    }
+    // 1. Validate image
+    CheckImageRequierements(imagePath);
 
-    // 5. Aspect ratio check
-    const ratio = width / height;
-    if (ratio < IMG.Dimensions.RatioMin || ratio > IMG.Dimensions.RatioMax) {
-        throw new Error(
-            `Invalid ratio. Expected between ${IMG.Dimensions.RatioMin} and ${IMG.Dimensions.RatioMax}`
-        );
-    }
+    // 2. Call MiniMax API
+    const payload = {
+      model: "hailuo-2.0-video",
+      prompt: "Rotate this person 360 degrees.",
+      duration: 6,
+      resolution: "1080x1920",
+      start: "pedestal_up",
+      end: "static_shot",
+    };
 
-    return true;
-    
-}
-CheckImageRequierements(path.join(__dirname, 'HaircutImage0.png'));
-//fetch function
-//Minimax Hailuo API url
-const url = "https://api.minimax.io/v1/video_generation";
-//options
-const options = {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.My_API_Key}`
-    },
-    body: JSON.stringify({
-        model: "video-01",
-        prompt: "A man picks up a book [Pedestal up], then reads [Static shot].",
-        duration: 6,
-        resolution: "1080P",
-        start: "pedestal_up",
-        end: "static_shot"
-    })
-}
-//fetch API data for video generation
-async function fetchHailuoData() {
-    try{
-    const response = await fetch(url, options);
+    const response = await fetch(MINIMAX_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.My_API_Key}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
     const data = await response.json();
-    console.log(data);
-    } catch (error) {
-        console.error("Error fetching Hailuo data:", error);
-        throw error;
-    }
-}
-fetchHailuoData();
+
+    // cleanup upload
+    fs.unlinkSync(imagePath);
+
+    res.json(data);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});
