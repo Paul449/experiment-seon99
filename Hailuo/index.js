@@ -1,57 +1,63 @@
 import express from "express";
-import multer from "multer";
+import cors from "cors";
 import dotenv from "dotenv";
-import fs from "fs";
+import fileUpload from "express-fileupload";
 import fetch from "node-fetch";
-import CheckImageRequierements  from "./utils/validateImage.js";
+import  CheckImageRequirements  from "./utils/validateImage.js";
 
 dotenv.config();
 
 const app = express();
-const upload = multer({ dest: "uploads/" });
 
-app.use(express.static("public")); // serves index.html automatically
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(fileUpload());
 
-const MINIMAX_URL = "https://api.minimax.chat/v2/video/generate";
+// Serve static frontend files
+app.use(express.static("public"));
 
-// Upload image + validate + call MiniMax
-app.post("/api/generate-video", upload.single("photo"), async (req, res) => {
-  try {
-    const imagePath = req.file.path;
+// Upload endpoint
+app.post("/upload", async (req, res) => {
+    try {
+        if (!req.files || !req.files.image) {
+            return res.status(400).json({ error: "No file uploaded." });
+        }
 
-    // 1. Validate image
-    CheckImageRequierements(imagePath);
+        const image = req.files.image;
 
-    // 2. Call MiniMax API
-    const payload = {
-      model: "hailuo-2.0-video",
-      prompt: "Rotate this person 360 degrees.",
-      duration: 6,
-      resolution: "1080x1920",
-      start: "pedestal_up",
-      end: "static_shot",
-    };
+        // Validate image
+        CheckImageRequirements(image);
 
-    const response = await fetch(MINIMAX_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.My_API_Key}`,
-      },
-      body: JSON.stringify(payload),
-    });
+        // Save to uploads folder
+        image.mv(`./uploads/${image.name}`);
 
-    const data = await response.json();
-
-    // cleanup upload
-    fs.unlinkSync(imagePath);
-
-    res.json(data);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+        res.json({ success: true, path: `/uploads/${image.name}` });
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
 });
 
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+// Minimax generate video
+app.post("/generate-video", async (req, res) => {
+    try {
+        const payload = req.body;
+
+        const response = await fetch("https://api.minimax.chat/v2/video/generate", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${process.env.My_API_Key}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: "Minimax error." });
+    }
 });
+
+app.listen(3000, () => console.log("Server running → http://localhost:3000"));

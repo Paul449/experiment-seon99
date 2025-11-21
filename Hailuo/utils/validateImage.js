@@ -1,8 +1,6 @@
 import imageSize from "image-size";
 import path from "path";
 import fs from "fs";
-import { fileURLToPath } from "url";
-const __filename = fileURLToPath(import.meta.url);
 
 // Image requirements
 const IMG = {
@@ -15,22 +13,25 @@ const IMG = {
   },
 };
 
-// Validate Image
-export default function CheckImageRequierements(imagePath) {
-  const ext = path.extname(imagePath).replace(".", "").toLowerCase();
+export default async function CheckImageRequirements(imagePath) {
+  const ext = path.extname(imagePath).slice(1).toLowerCase();
   if (!IMG.format.includes(ext)) {
     throw new Error(`Invalid image format. Allowed: ${IMG.format.join(", ")}`);
   }
 
-  const stats = fs.statSync(imagePath);
+  const stats = await fs.promises.stat(imagePath);
   if (stats.size > IMG.size) {
     throw new Error(`Image too large. Max size: ${IMG.size / (1024 * 1024)} MB`);
   }
 
-  const buffer = fs.readFileSync(imagePath);
-  const { width, height } = imageSize(buffer);
+  const buffer = await fs.promises.readFile(imagePath);
 
-  if (!width || !height) throw new Error("Cannot read image dimensions.");
+  let width, height;
+  try {
+    ({ width, height } = imageSize(buffer));
+  } catch {
+    throw new Error("Cannot read image dimensions.");
+  }
 
   if (Math.min(width, height) < IMG.Dimensions.ShortSide) {
     throw new Error(`Short side too small. Min: ${IMG.Dimensions.ShortSide}px`);
