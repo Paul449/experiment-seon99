@@ -13,8 +13,8 @@ async function generateVideo(){
     const image2Path = path.join('./inputImages', 'mullet2.jpg');
     
     // Convert first image to base64
-    const imageBuffer = fs.readFileSync(image1Path);
-    const base64Image = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+    const startImageBuffer = fs.readFileSync(image1Path);
+    const base64StartImage = `data:image/jpeg;base64,${startImageBuffer.toString('base64')}`;
     
     // Convert second image to base64 (optional - for end_image_url)
     const endImageBuffer = fs.readFileSync(image2Path);
@@ -28,8 +28,8 @@ async function generateVideo(){
     },
     body: JSON.stringify({
             prompt: API_Config.PROMPT,
-            duration: 6,
-            image_url: base64Image,
+            duration: 10,
+            image_url: base64StartImage,
             end_image_url: base64EndImage,
             prompt_optimizer: true
         })
@@ -74,7 +74,7 @@ async function pollVideoCompletion(requestId) {
             return;
         }
         
-        // Wait 5 seconds before next poll
+        // Wait 30 seconds before next poll
         await new Promise(resolve => setTimeout(resolve, 5000));
     }
     
