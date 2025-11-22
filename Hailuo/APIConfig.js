@@ -3,7 +3,7 @@ const API_Config = {
     API_KEY_ID: `74521134-a405-4d71-8fdc-099a9da33d11`,
     MODEL_URI: 'minimax/hailuo-02/standard',
     BASE_URL: 'https://platform.higgsfield.ai',
-    PROMPT: 'orbit and preserve the subject exactly as in the input images—no edits to the face, hair, color, textures, body, or geometry. Do not alter or replace the background. Only the camera angle should change',
+    PROMPT: 'orbit and preserve the person exactly as in the input images—no edits to the face, hair, color, textures, body, or geometry. Do not alter or replace the background. Only the camera angle should change',
 }
 
 
