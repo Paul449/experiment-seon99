@@ -65,9 +65,9 @@ async function pollVideoCompletion(requestId) {
         const statusData = await body.json();
         console.log('Status:', statusData);
         
-        if (statusData.status === 'completed') {
+        if (statusData.status === 'completed' && statusData.video?.url) {
             console.log('Video ready! Downloading...');
-            await downloadVideo(statusData.file_id, requestId);
+            await downloadVideo(statusData.video.url, requestId);
             return;
         } else if (statusData.status === 'failed') {
             console.error('Video generation failed');
@@ -81,7 +81,7 @@ async function pollVideoCompletion(requestId) {
     console.log('Timeout waiting for video generation');
 }
 
-async function downloadVideo(videoUrl, taskId) {
+async function downloadVideo(videoUrl, requestId) {
     try {
         // Create outputVideos directory if it doesn't exist
         const outputDir = './outputVideos';
@@ -95,7 +95,7 @@ async function downloadVideo(videoUrl, taskId) {
         
         // Save with timestamp
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `video_${taskId}_${timestamp}.mp4`;
+        const filename = `video_${requestId}_${timestamp}.mp4`;
         const filepath = path.join(outputDir, filename);
         
         fs.writeFileSync(filepath, Buffer.from(videoBuffer));
