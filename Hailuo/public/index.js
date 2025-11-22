@@ -124,88 +124,82 @@ function removePhoto(index) {
 
 // Generate 360° Video
 createModelBtn.addEventListener('click', async () => {
-    if (uploadedPhotos.length < 2) {
-        statusDiv.textContent = 'Please upload at least 2 photos';
+    if (uploadedPhotos.length < 3) {
+        statusDiv.textContent = 'Please upload 3 photos (front, side, back)';
         statusDiv.style.color = '#ff4444';
         return;
     }
     
     createModelBtn.disabled = true;
-    createModelBtn.textContent = 'Generating 360° Video...';
-    statusDiv.textContent = 'Uploading images and generating video...';
+    createModelBtn.textContent = 'Generating Videos...';
+    statusDiv.textContent = 'Preparing images...';
     statusDiv.style.color = '#00aa44';
     
     try {
-        // Upload first image
-        statusDiv.textContent = 'Uploading first image...';
-        const formData1 = new FormData();
-        formData1.append('image', uploadedPhotos[0].file);
+        // Convert all 3 images to base64
+        statusDiv.textContent = 'Converting images to base64...';
+        const base64Image1 = await imageToBase64(uploadedPhotos[0].file); // Front
+        const base64Image2 = await imageToBase64(uploadedPhotos[1].file); // Side
+        const base64Image3 = await imageToBase64(uploadedPhotos[2].file); // Back
         
-        const uploadResponse1 = await fetch('/upload', {
-            method: 'POST',
-            body: formData1
-        });
-        
-        const uploadData1 = await uploadResponse1.json();
-        
-        if (!uploadData1.success) {
-            throw new Error(uploadData1.error || 'Upload failed');
-        }
-        
-        // Upload second image
-        statusDiv.textContent = 'Uploading second image...';
-        const formData2 = new FormData();
-        formData2.append('image', uploadedPhotos[1].file);
-        
-        const uploadResponse2 = await fetch('/upload', {
-            method: 'POST',
-            body: formData2
-        });
-        
-        const uploadData2 = await uploadResponse2.json();
-        
-        if (!uploadData2.success) {
-            throw new Error(uploadData2.error || 'Upload failed');
-        }
-        
-        console.log('Upload successful:', uploadData1, uploadData2);
-        statusDiv.textContent = 'Images uploaded. Converting to base64...';
-        
-        // Convert images to base64 for API
-        const base64Image1 = await imageToBase64(uploadedPhotos[0].file);
-        const base64Image2 = await imageToBase64(uploadedPhotos[1].file);
-        
-        statusDiv.textContent = 'Requesting 360° video generation...';
-        
-        // Generate video with Higgsfield API
-        const videoPayload = {
+        // Generate first video: Front to Side
+        statusDiv.textContent = 'Requesting first video (Front → Side)...';
+        const videoPayload1 = {
             first_frame_image: base64Image1,
             end_frame_image: base64Image2
         };
         
-        console.log('Sending video generation request');
-        
-        const videoResponse = await fetch('/generate-video', {
+        const videoResponse1 = await fetch('/generate-video', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(videoPayload)
+            body: JSON.stringify(videoPayload1)
         });
         
-        if (!videoResponse.ok) {
-            throw new Error(`Server error: ${videoResponse.status} ${videoResponse.statusText}`);
+        if (!videoResponse1.ok) {
+            throw new Error(`Server error: ${videoResponse1.status} ${videoResponse1.statusText}`);
         }
         
-        const videoData = await videoResponse.json();
-        console.log('Video generation response:', videoData);
+        const videoData1 = await videoResponse1.json();
+        console.log('First video generation response:', videoData1);
         
-        if (videoData.request_id) {
-            // Start polling for video status
-            pollVideoStatus(videoData.request_id);
-        } else {
-            throw new Error(videoData.error || 'Video generation failed');
+        if (!videoData1.request_id) {
+            throw new Error(videoData1.error || 'First video generation failed');
         }
+        
+        // Generate second video: Side to Back
+        statusDiv.textContent = 'Requesting second video (Side → Back)...';
+        const videoPayload2 = {
+            first_frame_image: base64Image2,
+            end_frame_image: base64Image3
+        };
+        
+        const videoResponse2 = await fetch('/generate-video', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(videoPayload2)
+        });
+        
+        if (!videoResponse2.ok) {
+            throw new Error(`Server error: ${videoResponse2.status} ${videoResponse2.statusText}`);
+        }
+        
+        const videoData2 = await videoResponse2.json();
+        console.log('Second video generation response:', videoData2);
+        
+        if (!videoData2.request_id) {
+            throw new Error(videoData2.error || 'Second video generation failed');
+        }
+        
+        // Poll both videos
+        statusDiv.textContent = 'Generating both videos...';
+        await Promise.all([
+            pollVideoStatus(videoData1.request_id, 1, 'Front → Side'),
+            pollVideoStatus(videoData2.request_id, 2, 'Side → Back')
+        ]);
         
     } catch (error) {
         console.error('Error:', error);
@@ -219,14 +213,14 @@ createModelBtn.addEventListener('click', async () => {
 
 
 // Poll for video completion (if API returns request_id)
-async function pollVideoStatus(requestId) {
+async function pollVideoStatus(requestId, videoNumber, label) {
     const maxAttempts = 60;
     let attempts = 0;
 
     const poll = async () => {
         try {
             attempts++;
-            statusDiv.textContent = `Generating video... (${attempts}/${maxAttempts})`;
+            console.log(`Checking video ${videoNumber} status... (${attempts}/${maxAttempts})`);
 
             const response = await fetch('/query-video', {
                 method: 'POST',
@@ -237,28 +231,24 @@ async function pollVideoStatus(requestId) {
             });
 
             const data = await response.json();
-            console.log('Poll response:', data);
+            console.log(`Poll response for video ${videoNumber}:`, data);
 
             if (data.status === 'completed' && data.video?.url) {
                 // Download video to server first
-                await downloadAndDisplayVideo(data.video.url, requestId);
+                await downloadAndDisplayVideo(data.video.url, requestId, videoNumber, label);
                 return;
             } else if (data.status === 'failed') {
-                statusDiv.textContent = 'Video generation failed';
-                statusDiv.style.color = '#ff4444';
+                console.error(`Video ${videoNumber} generation failed`);
                 return;
             } else {
                 if (attempts < maxAttempts) {
                     setTimeout(poll, 5000);
                 } else {
-                    statusDiv.textContent = 'Timeout. Request ID: ' + requestId;
-                    statusDiv.style.color = '#ffaa00';
+                    console.log(`Timeout for video ${videoNumber}. Request ID: ${requestId}`);
                 }
             }
         } catch (error) {
-            console.error('Polling error:', error);
-            statusDiv.textContent = 'Error: ' + error.message;
-            statusDiv.style.color = '#ff4444';
+            console.error(`Polling error for video ${videoNumber}:`, error);
         }
     };
 
@@ -266,15 +256,26 @@ async function pollVideoStatus(requestId) {
 }
 
 // Download video and display it
-async function downloadAndDisplayVideo(videoUrl, requestId) {
+let completedVideos = [];
+
+async function downloadAndDisplayVideo(videoUrl, requestId, videoNumber, label) {
     try {
-        statusDiv.textContent = 'Downloading video...';
+        console.log(`Downloading video ${videoNumber}...`);
         
         const response = await fetch(`/download-video?video_url=${encodeURIComponent(videoUrl)}&request_id=${requestId}`);
         const result = await response.json();
         
         if (result.success) {
-            displayVideo(result.filename);
+            completedVideos.push({ filename: result.filename, number: videoNumber, label });
+            
+            // Update status
+            statusDiv.textContent = `Video ${videoNumber}/2 completed (${label})`;
+            statusDiv.style.color = '#00aa44';
+            
+            // If both videos are done, display them
+            if (completedVideos.length === 2) {
+                displayVideos();
+            }
         } else {
             throw new Error(result.error || 'Download failed');
         }
@@ -285,25 +286,37 @@ async function downloadAndDisplayVideo(videoUrl, requestId) {
     }
 }
 
-// Display generated video
-function displayVideo(filename) {
-    const url = `/outputVideos/${filename}`;
-    videoUrl = url;
+// Display both generated videos
+function displayVideos() {
+    // Sort by video number
+    completedVideos.sort((a, b) => a.number - b.number);
+    
     videoContainer.innerHTML = `
-        <h3>Generated 360° Video</h3>
-        <video controls autoplay loop style="max-width: 100%; border-radius: 8px; border: 2px solid #444;">
-            <source src="${url}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <div style="margin-top: 10px;">
-            <a href="${url}" download style="color: #00aa44; text-decoration: none;">Download Video</a>
+        <h3>Generated 360° Videos</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+            ${completedVideos.map(video => `
+                <div>
+                    <h4 style="margin-bottom: 10px;">${video.label}</h4>
+                    <video controls autoplay loop style="width: 100%; border-radius: 8px; border: 2px solid #444;">
+                        <source src="/outputVideos/${video.filename}" type="video/mp4">
+                        Your browser does not support the video tag.
+                    </video>
+                    <div style="margin-top: 10px; text-align: center;">
+                        <a href="/outputVideos/${video.filename}" download style="color: #00aa44; text-decoration: none;">📥 Download</a>
+                    </div>
+                </div>
+            `).join('')}
         </div>
     `;
-    statusDiv.textContent = '✓ Video generated successfully!';
+    
+    statusDiv.textContent = '✓ Both videos generated successfully!';
     statusDiv.style.color = '#00aa44';
     
-    // Hide canvas, show video
+    // Hide canvas, show videos
     canvas.style.display = 'none';
+    
+    // Reset for next generation
+    completedVideos = [];
 }
 
 // Show preview of uploaded images on canvas
@@ -321,7 +334,7 @@ function previewImages() {
             ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
         };
         img.src = uploadedPhotos[0].dataUrl;
-    } else {
+    } else if (uploadedPhotos.length === 2) {
         // Show both images side by side
         const img1 = new Image();
         const img2 = new Image();
@@ -335,7 +348,7 @@ function previewImages() {
             ctx.fillStyle = '#fff';
             ctx.font = '16px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('First Frame', canvas.width / 4, canvas.height - 20);
+            ctx.fillText('Front', canvas.width / 4, canvas.height - 20);
         };
         img1.src = uploadedPhotos[0].dataUrl;
         
@@ -348,9 +361,28 @@ function previewImages() {
             ctx.fillStyle = '#fff';
             ctx.font = '16px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('Last Frame', 3 * canvas.width / 4, canvas.height - 20);
+            ctx.fillText('Side', 3 * canvas.width / 4, canvas.height - 20);
         };
         img2.src = uploadedPhotos[1].dataUrl;
+    } else if (uploadedPhotos.length >= 3) {
+        // Show all three images
+        const images = [new Image(), new Image(), new Image()];
+        const labels = ['Front', 'Side', 'Back'];
+        
+        images.forEach((img, index) => {
+            img.onload = () => {
+                const scale = Math.min(canvas.width / 3 / img.width, canvas.height / img.height);
+                const x = (index * canvas.width / 3) + (canvas.width / 6) - (img.width / 2) * scale;
+                const y = (canvas.height / 2) - (img.height / 2) * scale;
+                ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(labels[index], (index * canvas.width / 3) + (canvas.width / 6), canvas.height - 20);
+            };
+            img.src = uploadedPhotos[index].dataUrl;
+        });
     }
 }
 
@@ -360,4 +392,4 @@ ctx.fillRect(0, 0, canvas.width, canvas.height);
 ctx.fillStyle = '#fff';
 ctx.font = '20px Arial';
 ctx.textAlign = 'center';
-ctx.fillText('Upload 2 photos of your head from different angles', canvas.width / 2, canvas.height / 2);
+ctx.fillText('Upload 3 photos: Front, Side, and Back views', canvas.width / 2, canvas.height / 2);
