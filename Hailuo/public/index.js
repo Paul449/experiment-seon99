@@ -272,9 +272,9 @@ async function downloadAndDisplayVideo(videoUrl, requestId, videoNumber, label) 
             statusDiv.textContent = `Video ${videoNumber}/2 completed (${label})`;
             statusDiv.style.color = '#00aa44';
             
-            // If both videos are done, display them
+            // If both videos are done, merge and display them
             if (completedVideos.length === 2) {
-                displayVideos();
+                await mergeAndDisplayVideos();
             }
         } else {
             throw new Error(result.error || 'Download failed');
@@ -286,33 +286,58 @@ async function downloadAndDisplayVideo(videoUrl, requestId, videoNumber, label) 
     }
 }
 
-// Display both generated videos
-function displayVideos() {
-    // Sort by video number
-    completedVideos.sort((a, b) => a.number - b.number);
-    
+// Merge both videos into one
+async function mergeAndDisplayVideos() {
+    try {
+        // Sort by video number
+        completedVideos.sort((a, b) => a.number - b.number);
+        
+        statusDiv.textContent = 'Merging videos into one 360° video...';
+        statusDiv.style.color = '#00aa44';
+        
+        const mergeResponse = await fetch('/merge-videos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                video1: completedVideos[0].filename,
+                video2: completedVideos[1].filename
+            })
+        });
+        
+        const mergeResult = await mergeResponse.json();
+        
+        if (mergeResult.success) {
+            displayMergedVideo(mergeResult.filename);
+        } else {
+            throw new Error(mergeResult.error || 'Merge failed');
+        }
+    } catch (error) {
+        console.error('Merge error:', error);
+        statusDiv.textContent = 'Error merging videos: ' + error.message;
+        statusDiv.style.color = '#ff4444';
+    }
+}
+
+// Display the merged 360° video
+function displayMergedVideo(filename) {
     videoContainer.innerHTML = `
-        <h3>Generated 360° Videos</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
-            ${completedVideos.map(video => `
-                <div>
-                    <h4 style="margin-bottom: 10px;">${video.label}</h4>
-                    <video controls autoplay loop style="width: 100%; border-radius: 8px; border: 2px solid #444;">
-                        <source src="/outputVideos/${video.filename}" type="video/mp4">
-                        Your browser does not support the video tag.
-                    </video>
-                    <div style="margin-top: 10px; text-align: center;">
-                        <a href="/outputVideos/${video.filename}" download style="color: #00aa44; text-decoration: none;">📥 Download</a>
-                    </div>
-                </div>
-            `).join('')}
+        <h3>Complete 360° Rotation Video</h3>
+        <p style="color: #aaa; font-size: 14px;">Front → Side → Back</p>
+        <video controls autoplay loop style="max-width: 100%; border-radius: 8px; border: 2px solid #444;">
+            <source src="/outputVideos/${filename}" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <div style="margin-top: 15px;">
+            <a href="/outputVideos/${filename}" download style="display: inline-block; padding: 10px 20px; background-color: #00aa44; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">📥 Download Complete 360° Video</a>
         </div>
     `;
     
-    statusDiv.textContent = '✓ Both videos generated successfully!';
+    statusDiv.textContent = '✓ Complete 360° video generated successfully!';
     statusDiv.style.color = '#00aa44';
     
-    // Hide canvas, show videos
+    // Hide canvas, show video
     canvas.style.display = 'none';
     
     // Reset for next generation

@@ -7,8 +7,14 @@ import fs from "fs";
 import path from "path";
 import { request } from "undici";
 import API_Config from "./APIConfig.js";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from 'ffmpeg-static';
 
 dotenv.config();
+
+// Set FFmpeg path from ffmpeg-static
+ffmpeg.setFfmpegPath(ffmpegPath);
+console.log('Using FFmpeg at:', ffmpegPath);
 
 const app = express();
 
@@ -149,6 +155,61 @@ app.get("/download-video", async (req, res) => {
     } catch (err) {
         console.error('Download error:', err);
         res.status(500).json({ error: "Download error: " + err.message });
+    }
+});
+
+// Merge two videos endpoint
+app.post("/merge-videos", async (req, res) => {
+    try {
+        const { video1, video2 } = req.body;
+        
+        if (!video1 || !video2) {
+            return res.status(400).json({ error: 'Both video filenames are required' });
+        }
+        
+        const video1Path = path.join('./outputVideos', video1);
+        const video2Path = path.join('./outputVideos', video2);
+        
+        // Check if both videos exist
+        if (!fs.existsSync(video1Path) || !fs.existsSync(video2Path)) {
+            return res.status(404).json({ error: 'One or both video files not found' });
+        }
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const mergedFilename = `merged_360_${timestamp}.mp4`;
+        const mergedPath = path.join('./outputVideos', mergedFilename);
+        
+        // Create a text file with the list of videos to concatenate
+        const fileListPath = path.join('./outputVideos', `filelist_${timestamp}.txt`);
+        const fileListContent = `file '${path.basename(video1Path)}'\nfile '${path.basename(video2Path)}'`;
+        fs.writeFileSync(fileListPath, fileListContent);
+        
+        console.log('Merging videos:', video1, '+', video2);
+        
+        // Use FFmpeg to concatenate videos
+        await new Promise((resolve, reject) => {
+            ffmpeg()
+                .input(fileListPath)
+                .inputOptions(['-f concat', '-safe 0'])
+                .outputOptions(['-c copy'])
+                .output(mergedPath)
+                .on('end', () => {
+                    console.log('Videos merged successfully');
+                    // Clean up file list
+                    fs.unlinkSync(fileListPath);
+                    resolve();
+                })
+                .on('error', (err) => {
+                    console.error('FFmpeg error:', err);
+                    reject(err);
+                })
+                .run();
+        });
+        
+        res.json({ success: true, filename: mergedFilename });
+    } catch (err) {
+        console.error('Merge error:', err);
+        res.status(500).json({ error: "Merge error: " + err.message });
     }
 });
 
