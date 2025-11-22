@@ -173,17 +173,17 @@ createModelBtn.addEventListener('click', async () => {
         
         // Convert images to base64 for API
         const base64Image1 = await imageToBase64(uploadedPhotos[0].file);
+        const base64Image2 = await imageToBase64(uploadedPhotos[1].file);
         
         statusDiv.textContent = 'Requesting 360° video generation...';
         
-        // Generate video with Minimax API
+        // Generate video with Higgsfield API
         const videoPayload = {
-            model: "video-01",
-            prompt: "Generate a smooth 360-degree rotation view of the person's head, showing all angles continuously from front to back and around, creating a complete orbital camera movement around the subject",
-            first_frame_image: base64Image1
+            first_frame_image: base64Image1,
+            end_frame_image: base64Image2
         };
         
-        console.log('Sending video generation request:', videoPayload);
+        console.log('Sending video generation request');
         
         const videoResponse = await fetch('/generate-video', {
             method: 'POST',
@@ -200,11 +200,11 @@ createModelBtn.addEventListener('click', async () => {
         const videoData = await videoResponse.json();
         console.log('Video generation response:', videoData);
         
-        if (videoData.base_resp && videoData.base_resp.status_code === 0 && videoData.task_id) {
+        if (videoData.request_id) {
             // Start polling for video status
-            pollVideoStatus(videoData.task_id);
+            pollVideoStatus(videoData.request_id);
         } else {
-            throw new Error(videoData.base_resp?.status_msg || 'Video generation failed');
+            throw new Error(videoData.error || 'Video generation failed');
         }
         
     } catch (error) {
@@ -218,8 +218,8 @@ createModelBtn.addEventListener('click', async () => {
 });
 
 
-// Poll for video completion (if API returns task_id)
-async function pollVideoStatus(taskId) {
+// Poll for video completion (if API returns request_id)
+async function pollVideoStatus(requestId) {
     const maxAttempts = 60;
     let attempts = 0;
 
@@ -233,16 +233,17 @@ async function pollVideoStatus(taskId) {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ task_id: taskId })
+                body: JSON.stringify({ request_id: requestId })
             });
 
             const data = await response.json();
             console.log('Poll response:', data);
 
-            if (data.status === 'Success' && data.file_id) {
-                displayVideo(data.file_id);
+            if (data.status === 'completed' && data.video?.url) {
+                // Download video to server first
+                await downloadAndDisplayVideo(data.video.url, requestId);
                 return;
-            } else if (data.status === 'Failed') {
+            } else if (data.status === 'failed') {
                 statusDiv.textContent = 'Video generation failed';
                 statusDiv.style.color = '#ff4444';
                 return;
@@ -250,7 +251,7 @@ async function pollVideoStatus(taskId) {
                 if (attempts < maxAttempts) {
                     setTimeout(poll, 5000);
                 } else {
-                    statusDiv.textContent = 'Timeout. Task ID: ' + taskId;
+                    statusDiv.textContent = 'Timeout. Request ID: ' + requestId;
                     statusDiv.style.color = '#ffaa00';
                 }
             }
@@ -264,8 +265,29 @@ async function pollVideoStatus(taskId) {
     poll();
 }
 
+// Download video and display it
+async function downloadAndDisplayVideo(videoUrl, requestId) {
+    try {
+        statusDiv.textContent = 'Downloading video...';
+        
+        const response = await fetch(`/download-video?video_url=${encodeURIComponent(videoUrl)}&request_id=${requestId}`);
+        const result = await response.json();
+        
+        if (result.success) {
+            displayVideo(result.filename);
+        } else {
+            throw new Error(result.error || 'Download failed');
+        }
+    } catch (error) {
+        console.error('Download error:', error);
+        statusDiv.textContent = 'Error downloading video: ' + error.message;
+        statusDiv.style.color = '#ff4444';
+    }
+}
+
 // Display generated video
-function displayVideo(url) {
+function displayVideo(filename) {
+    const url = `/outputVideos/${filename}`;
     videoUrl = url;
     videoContainer.innerHTML = `
         <h3>Generated 360° Video</h3>
