@@ -9,8 +9,8 @@ async function generateVideo(){
     console.log('Generating video with model:'+API_Config.MODEL_URI);
 
     // Read images from inputImages folder
-    const image1Path = path.join('./inputImages', 'paulFront.jpg');
-    const image2Path = path.join('./inputImages', 'paulBack.jpg');
+    const image1Path = path.join('./inputImages', 'front1.jpg');
+    const image2Path = path.join('./inputImages', 'gerSide.jpg');
     
     // Convert first image to base64
     const startImageBuffer = fs.readFileSync(image1Path);
