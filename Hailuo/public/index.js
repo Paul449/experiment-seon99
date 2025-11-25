@@ -239,14 +239,27 @@ async function pollVideoStatus(taskId) {
             const data = await response.json();
             console.log('Poll response:', data);
 
+            // Check if video is ready (MiniMax API returns status field)
             if (data.status === 'Success' && data.file_id) {
+                statusDiv.textContent = 'Video generated successfully!';
+                statusDiv.style.color = '#00aa44';
                 displayVideo(data.file_id);
                 return;
             } else if (data.status === 'Failed') {
                 statusDiv.textContent = 'Video generation failed';
                 statusDiv.style.color = '#ff4444';
                 return;
+            } else if (data.status === 'Preparing' || data.status === 'Processing') {
+                // Still processing, continue polling
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, 5000);
+                } else {
+                    statusDiv.textContent = 'Timeout. Task ID: ' + taskId;
+                    statusDiv.style.color = '#ffaa00';
+                }
             } else {
+                // Unknown status, log it and continue polling
+                console.log('Unknown status:', data.status);
                 if (attempts < maxAttempts) {
                     setTimeout(poll, 5000);
                 } else {
@@ -263,25 +276,48 @@ async function pollVideoStatus(taskId) {
 
     poll();
 }
-
 // Display generated video
-function displayVideo(url) {
-    videoUrl = url;
-    videoContainer.innerHTML = `
-        <h3>Generated 360° Video</h3>
-        <video controls autoplay loop style="max-width: 100%; border-radius: 8px; border: 2px solid #444;">
-            <source src="${url}" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <div style="margin-top: 10px;">
-            <a href="${url}" download style="color: #00aa44; text-decoration: none;">Download Video</a>
-        </div>
-    `;
-    statusDiv.textContent = '✓ Video generated successfully!';
-    statusDiv.style.color = '#00aa44';
-    
-    // Hide canvas, show video
-    canvas.style.display = 'none';
+async function displayVideo(fileId) {
+    try {
+        statusDiv.textContent = 'Retrieving video URL...';
+        
+        const response = await fetch('/get-video-url', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ file_id: fileId })
+        });
+        
+        const data = await response.json();
+        console.log('Video URL response:', data);
+        
+        if (data.file && data.file.download_url) {
+            const videoUrl = data.file.download_url;
+            
+            videoContainer.innerHTML = `
+                <h3>Generated 360° Video</h3>
+                <video controls autoplay loop style="max-width: 100%; border-radius: 8px; border: 2px solid #444;">
+                    <source src="${videoUrl}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+                <div style="margin-top: 10px;">
+                    <a href="${videoUrl}" download style="color: #00aa44; text-decoration: none;">Download Video</a>
+                </div>
+            `;
+            statusDiv.textContent = '✓ Video generated successfully!';
+            statusDiv.style.color = '#00aa44';
+            
+            // Hide canvas, show video
+            canvas.style.display = 'none';
+        } else {
+            throw new Error('No download URL in response');
+        }
+    } catch (error) {
+        console.error('Error displaying video:', error);
+        statusDiv.textContent = 'Error retrieving video: ' + error.message;
+        statusDiv.style.color = '#ff4444';
+    }
 }
 
 // Show preview of uploaded images on canvas

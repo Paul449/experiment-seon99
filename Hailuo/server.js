@@ -110,5 +110,26 @@ app.post("/query-video", async (req, res) => {
         res.status(500).json({ error: "Query error: " + err.message });
     }
 });
+// Get video file URL
+app.post("/get-video-url", async (req, res) => {
+    try {
+        const { file_id } = req.body;
+        console.log('Getting video URL for file_id:', file_id);
+
+        const response = await fetch(`https://api.minimax.io/v1/files/retrieve?file_id=${file_id}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${process.env.My_API_Key}`
+            }
+        });
+
+        const data = await response.json();
+        console.log('File retrieve response:', JSON.stringify(data, null, 2));
+        res.json(data);
+    } catch (err) {
+        console.error('Get video URL error:', err);
+        res.status(500).json({ error: "Get video URL error: " + err.message });
+    }
+});
 
 app.listen(3000, () => console.log("Server running → http://localhost:3000"));
