@@ -57,11 +57,13 @@ app.post("/upload", async (req, res) => {
 });
 
 // Minimax generate video
+// Query video status
 app.post("/generate-video", async (req, res) => {
     try {
-        console.log('Video generation request received');
-        const payload = req.body;
-        console.log('Payload:', JSON.stringify(payload, null, 2));
+        const { model, prompt, first_frame_image } = req.body;
+        console.log('Generating video with model:', model);
+        console.log('Prompt:', prompt);
+        console.log('First frame image size:', first_frame_image ?.length);
 
         const response = await fetch("https://api.minimax.io/v1/video_generation", {
             method: "POST",
@@ -69,30 +71,64 @@ app.post("/generate-video", async (req, res) => {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${process.env.My_API_Key}`
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify({ model, prompt, first_frame_image })
         });
 
-        console.log('Minimax API response status:', response.status);
-        console.log('Minimax API response headers:', Object.fromEntries(response.headers.entries()));
+        const responseText = await response.text();
+        console.log('Raw response:', responseText);
         
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-            console.log('Minimax API response data:', JSON.stringify(data, null, 2));
-            res.json(data);
-        } else {
-            // Not JSON, probably HTML error page
-            const text = await response.text();
-            console.log('Minimax API response (non-JSON):', text.substring(0, 500));
-            res.status(response.status).json({ 
-                error: `API returned non-JSON response (${response.status})`,
-                details: text.substring(0, 500)
-            });
-        }
+        const data = JSON.parse(responseText);
+        console.log('Query response:', JSON.stringify(data, null, 2));
+        res.json(data);
     } catch (err) {
-        console.error('Minimax error:', err);
-        res.status(500).json({ error: "Minimax error: " + err.message });
+        console.error('Query error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Query video status
+app.post("/query-video", async (req, res) => {
+    try {
+        const { task_id } = req.body;
+        console.log('Querying video status for task:', task_id);
+
+        const response = await fetch(`https://api.minimax.io/v1/query/video_generation?task_id=${task_id}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${process.env.My_API_Key}`
+            },
+        });
+
+        const responseText = await response.text();
+        console.log('Query raw response:', responseText);
+        
+        const data = JSON.parse(responseText);
+        console.log('Query response:', JSON.stringify(data, null, 2));
+        res.json(data);
+    } catch (err) {
+        console.error('Query error:', err);
+        res.status(500).json({ error: "Query error: " + err.message });
+    }
+});
+// Get video file URL
+app.post("/get-video-url", async (req, res) => {
+    try {
+        const { file_id } = req.body;
+        console.log('Getting video URL for file_id:', file_id);
+
+        const response = await fetch(`https://api.minimax.io/v1/files/retrieve?file_id=${file_id}`, {
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${process.env.My_API_Key}`
+            }
+        });
+
+        const data = await response.json();
+        console.log('File retrieve response:', JSON.stringify(data, null, 2));
+        res.json(data);
+    } catch (err) {
+        console.error('Get video URL error:', err);
+        res.status(500).json({ error: "Get video URL error: " + err.message });
     }
 });
 
