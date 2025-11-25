@@ -241,17 +241,9 @@ async function pollVideoStatus(requestId, videoNumber, label, shouldMerge) {
             const data = await response.json();
             console.log(`Poll response for video ${videoNumber}:`, data);
 
-<<<<<<< HEAD
-            // Check if video is ready (MiniMax API returns status field)
-            if (data.status === 'Success' && data.file_id) {
-                statusDiv.textContent = 'Video generated successfully!';
-                statusDiv.style.color = '#00aa44';
-                displayVideo(data.file_id);
-=======
             if (data.status === 'completed' && data.video?.url) {
                 // Download video to server first
                 await downloadAndDisplayVideo(data.video.url, requestId, videoNumber, label, shouldMerge);
->>>>>>> origin/GB/Hailuo3D
                 return;
             } else if (data.status === 'failed') {
                 console.error(`Video ${videoNumber} generation failed`);
@@ -280,14 +272,6 @@ async function pollVideoStatus(requestId, videoNumber, label, shouldMerge) {
 
     poll();
 }
-<<<<<<< HEAD
-// Display generated video
-async function displayVideo(fileId) {
-    try {
-        statusDiv.textContent = 'Retrieving video URL...';
-        
-        const response = await fetch('/get-video-url', {
-=======
 
 // Download video and display it
 let completedVideos = [];
@@ -371,45 +355,10 @@ async function mergeAndDisplayVideos() {
         statusDiv.style.color = '#00aa44';
         
         const mergeResponse = await fetch('/merge-videos', {
->>>>>>> origin/GB/Hailuo3D
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-<<<<<<< HEAD
-            body: JSON.stringify({ file_id: fileId })
-        });
-        
-        const data = await response.json();
-        console.log('Video URL response:', data);
-        
-        if (data.file && data.file.download_url) {
-            const videoUrl = data.file.download_url;
-            
-            videoContainer.innerHTML = `
-                <h3>Generated 360° Video</h3>
-                <video controls autoplay loop style="max-width: 100%; border-radius: 8px; border: 2px solid #444;">
-                    <source src="${videoUrl}" type="video/mp4">
-                    Your browser does not support the video tag.
-                </video>
-                <div style="margin-top: 10px;">
-                    <a href="${videoUrl}" download style="color: #00aa44; text-decoration: none;">Download Video</a>
-                </div>
-            `;
-            statusDiv.textContent = '✓ Video generated successfully!';
-            statusDiv.style.color = '#00aa44';
-            
-            // Hide canvas, show video
-            canvas.style.display = 'none';
-        } else {
-            throw new Error('No download URL in response');
-        }
-    } catch (error) {
-        console.error('Error displaying video:', error);
-        statusDiv.textContent = 'Error retrieving video: ' + error.message;
-        statusDiv.style.color = '#ff4444';
-    }
-=======
             body: JSON.stringify({
                 video1: completedVideos[0].filename,
                 video2: completedVideos[1].filename
@@ -452,7 +401,6 @@ function displayMergedVideo(filename) {
     
     // Reset for next generation
     completedVideos = [];
->>>>>>> origin/GB/Hailuo3D
 }
 
 // Show preview of uploaded images on canvas
